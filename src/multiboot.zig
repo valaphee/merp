@@ -12,18 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const c = @cImport(@cInclude("multiboot.h"));
+const multiboot = @cImport(@cInclude("multiboot.h"));
 
 const com = @import("x86/com.zig");
 const cpu = @import("x86/cpu.zig");
 const pic = @import("x86/pic.zig");
-const pit = @import("x86/pit.zig");
 
-const multiboot_flags = c.MULTIBOOT_PAGE_ALIGN | c.MULTIBOOT_MEMORY_INFO;
-export const multiboot linksection(".multiboot") = c.multiboot_header{
-    .magic = c.MULTIBOOT_HEADER_MAGIC,
+const multiboot_flags = multiboot.MULTIBOOT_PAGE_ALIGN | multiboot.MULTIBOOT_MEMORY_INFO;
+export const multiboot_header linksection(".multiboot") = multiboot.multiboot_header{
+    .magic = multiboot.MULTIBOOT_HEADER_MAGIC,
     .flags = multiboot_flags,
-    .checksum = @bitCast(-(c.MULTIBOOT_HEADER_MAGIC + multiboot_flags)),
+    .checksum = @bitCast(-(multiboot.MULTIBOOT_HEADER_MAGIC + multiboot_flags)),
 };
 
 var stack: [0x1000]u8 align(16) = undefined;
@@ -46,11 +45,11 @@ fn main(
     multiboot_magic: u32,
     multiboot_info: u32,
 ) callconv(.C) void {
-    if (multiboot_magic != c.MULTIBOOT_BOOTLOADER_MAGIC) {
+    if (multiboot_magic != multiboot.MULTIBOOT_BOOTLOADER_MAGIC) {
         return;
     }
 
-    const multiboot_info_ptr: *c.multiboot_info = @ptrFromInt(multiboot_info);
+    const multiboot_info_ptr: *multiboot.multiboot_info = @ptrFromInt(multiboot_info);
     _ = multiboot_info_ptr;
 
     while (true) {}
