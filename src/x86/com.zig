@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Driver for the 16550 UART
+//! UART 16550-compatible driver
 //!
 //! https://www.ti.com/lit/ds/symlink/tl16c750.pdf
+
 const cpu = @import("cpu.zig");
 
 const COM1 = 0x3F8;

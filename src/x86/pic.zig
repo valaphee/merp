@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Driver for the 8259 PIC (programmable interrupt controller)
+//! 8259 PIC (programmable interrupt controller) driver
 //!
 //! https://pdos.csail.mit.edu/6.828/2005/readings/hardware/8259A.pdf
 
