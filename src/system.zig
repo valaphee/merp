@@ -11,3 +11,32 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+const rb_tree = @import("util/rb_tree.zig");
+
+const Self = @This();
+
+const Free = struct {
+    addr: usize,
+    size: usize,
+
+    fn compare(a: Free, b: Free) rb_tree.Order {
+        return if (a.addr < b.addr) .lt else if (a.addr > b.addr) .gt else .eq;
+    }
+};
+
+const FreeList = rb_tree.Tree(Free, Free.compare);
+
+free: FreeList = .{},
+
+pub fn mark_used(self: *Self, addr: ?usize, size: usize) usize {
+    _ = self;
+    _ = addr;
+    _ = size;
+}
+
+pub fn mark_free(self: *Self, addr: usize, size: usize) usize {
+    _ = self;
+    _ = addr;
+    _ = size;
+}

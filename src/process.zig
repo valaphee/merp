@@ -11,3 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+const rb_tree = @import("util/rb_tree.zig");
+
+const Self = @This();
+
+const Used = struct {
+    addr: usize,
+    size: usize,
+
+    fn compare(a: Used, b: Used) rb_tree.Order {
+        return if (a.addr < b.addr) .lt else if (a.addr > b.addr) .gt else .eq;
+    }
+};
+
+const UsedList = rb_tree.Tree(Used, Used.compare);
+
+used: UsedList = .{},
