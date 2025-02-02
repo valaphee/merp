@@ -30,14 +30,12 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
             pub fn succ(node: *Node) ?*Node {
                 if (node.childR) |childR| {
                     var n = childR;
-                    while (n.childL) |childL|
-                        n = childL;
+                    while (n.childL) |childL| n = childL;
                     return n;
                 }
                 var n = node;
                 while (n.parent) |parent| {
-                    if (n == parent.childR)
-                        return parent;
+                    if (n == parent.childR) return parent;
                     n = parent;
                 }
                 return null;
@@ -47,14 +45,12 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
             pub fn pred(node: *Node) ?*Node {
                 if (node.childL) |childL| {
                     var n = childL;
-                    while (n.childR) |childR|
-                        n = childR;
+                    while (n.childR) |childR| n = childR;
                     return n;
                 }
                 var n = node;
                 while (n.parent) |parent| {
-                    if (n == parent.childL)
-                        return parent;
+                    if (n == parent.childL) return parent;
                     n = parent;
                 }
                 return null;
@@ -149,118 +145,99 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
 
         /// Removes a node from the tree, rebalancing it afterwards.
         pub fn delete(tree: *Self, node: *Node) void {
-            var target: *Node = undefined;
-            if (node.childL == null or node.childR == null) {
-                target = node;
-            } else {
-                target = node.succ().?;
-            }
-            const targetChild: ?*Node = if (target.childL == null) target.childR else target.childL;
-            if (targetChild != null) {
-                targetChild.?.parent = target;
-            }
+            const target: *Node = if (node.childL != null and node.childR != null) node.succ().? else node;
+            const child: ?*Node = if (target.childL != null) target.childL else target.childR;
+            if (child != null) child.?.parent = target.parent;
+
             var nextMaybe: ?*Node = null;
-            if (target.parent) |targetParent| {
-                if (targetParent.childL == target) {
-                    targetParent.childL = targetChild;
-                    nextMaybe = targetParent.childR;
+            if (target.parent) |parent| {
+                if (parent.childL == target) {
+                    parent.childL = child;
+                    nextMaybe = parent.childR;
                 } else {
-                    targetParent.childR = targetChild;
-                    nextMaybe = targetParent.childR;
+                    parent.childR = child;
+                    nextMaybe = parent.childL;
                 }
-            } else {
-                tree.root = targetChild;
-            }
+            } else tree.root = child;
+
             const rebalance = target.color == .b;
             if (target != node) {
-                if (node.parent) |parent| {
-                    target.parent = parent;
-                    if (parent.childL == node) {
-                        parent.childL = target;
-                    } else {
-                        parent.childR = target;
-                    }
-                } else {
-                    target.parent = null;
-                    tree.root = target;
-                }
+                tree.replace(node, target);
                 target.childL = node.childL;
                 target.childL.?.parent = target;
                 target.childR = node.childR;
-                if (target.childR) |yRight| {
-                    yRight.parent = target;
-                }
+                if (target.childR) |n| n.parent = target;
                 target.color = node.color;
             }
-            if (rebalance and tree.root != null) {
-                if (targetChild != null) {
-                    targetChild.?.color = .b;
-                } else {
-                    var next = nextMaybe.?;
-                    while (true) {
-                        var parent = next.parent.?;
-                        if (parent.childR == next) {
-                            if (next.color == .r) {
-                                next.color = .b;
-                                parent.color = .r;
-                                rotateL(tree, parent);
-                                next = next.childL.?.childR.?;
-                                parent = next.parent.?;
-                            }
+            if (!rebalance or tree.root == null) return;
 
-                            if (if (next.childL) |child| child.color == .b else true and if (next.childR) |child| child.color == .b else true) {
-                                next.color = .r;
-                                if (parent.parent == null or parent.color == .r) {
-                                    parent.color = .b;
-                                    break;
-                                }
-                                const grandparent = parent.parent.?;
-                                next = if (grandparent.childL == parent) grandparent.childR.? else grandparent.childL.?;
-                            } else {
-                                if (if (next.childR) |n| n.color == .b else true) {
-                                    next.childL.?.color = .b;
-                                    next.color = .r;
-                                    rotateR(tree, next);
-                                    next = next.parent.?;
-                                    parent = next.parent.?;
-                                }
-                                next.color = parent.color;
+            if (child != null) {
+                child.?.color = .b;
+            } else {
+                var next = nextMaybe.?;
+                while (true) {
+                    var parent = next.parent.?;
+                    if (parent.childR == next) {
+                        if (next.color == .r) {
+                            next.color = .b;
+                            parent.color = .r;
+                            rotateL(tree, parent);
+                            next = next.childL.?.childR.?;
+                            parent = next.parent.?;
+                        }
+
+                        if (if (next.childL) |n| n.color == .b else true and if (next.childR) |n| n.color == .b else true) {
+                            next.color = .r;
+                            if (parent.parent == null or parent.color == .r) {
                                 parent.color = .b;
-                                next.childR.?.color = .b;
-                                rotateL(tree, parent);
                                 break;
                             }
+                            const grandparent = parent.parent.?;
+                            next = if (grandparent.childL == parent) grandparent.childR.? else grandparent.childL.?;
                         } else {
-                            if (next.color == .r) {
-                                next.color = .b;
-                                parent.color = .r;
-                                rotateR(tree, parent);
-                                next = next.childR.?.childL.?;
+                            if (if (next.childR) |n| n.color == .b else true) {
+                                next.childL.?.color = .b;
+                                next.color = .r;
+                                rotateR(tree, next);
+                                next = next.parent.?;
                                 parent = next.parent.?;
                             }
+                            next.color = parent.color;
+                            parent.color = .b;
+                            next.childR.?.color = .b;
+                            rotateL(tree, parent);
+                            break;
+                        }
+                    } else {
+                        if (next.color == .r) {
+                            next.color = .b;
+                            parent.color = .r;
+                            rotateR(tree, parent);
+                            next = next.childR.?.childL.?;
+                            parent = next.parent.?;
+                        }
 
-                            if (if (next.childL) |n| n.color == .b else true and if (next.childR) |n| n.color == .b else true) {
-                                next.color = .r;
-                                if (parent.parent == null or parent.color == .r) {
-                                    parent.color = .b;
-                                    break;
-                                }
-                                const grandparent = parent.parent.?;
-                                next = if (grandparent.childL == parent) grandparent.childR.? else grandparent.childL.?;
-                            } else {
-                                if (if (next.childL) |n| n.color == .b else true) {
-                                    next.childR.?.color = .b;
-                                    next.color = .r;
-                                    rotateL(tree, next);
-                                    next = next.parent.?;
-                                    parent = next.parent.?;
-                                }
-                                next.color = parent.color;
+                        if (if (next.childL) |n| n.color == .b else true and if (next.childR) |n| n.color == .b else true) {
+                            next.color = .r;
+                            if (parent.parent == null or parent.color == .r) {
                                 parent.color = .b;
-                                next.childL.?.color = .b;
-                                rotateR(tree, parent);
                                 break;
                             }
+                            const grandparent = parent.parent.?;
+                            next = if (grandparent.childL == parent) grandparent.childR.? else grandparent.childL.?;
+                        } else {
+                            if (if (next.childL) |n| n.color == .b else true) {
+                                next.childR.?.color = .b;
+                                next.color = .r;
+                                rotateL(tree, next);
+                                next = next.parent.?;
+                                parent = next.parent.?;
+                            }
+                            next.color = parent.color;
+                            parent.color = .b;
+                            next.childL.?.color = .b;
+                            rotateR(tree, parent);
+                            break;
                         }
                     }
                 }
@@ -270,23 +247,15 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
         fn replace(tree: *Self, old: *Node, new: *Node) void {
             new.parent = old.parent;
             if (old.parent) |parent| {
-                if (old == parent.childL) {
-                    parent.childL = new;
-                } else {
-                    parent.childR = new;
-                }
-            } else {
-                tree.root = new;
-            }
+                if (old == parent.childL) parent.childL = new else parent.childR = new;
+            } else tree.root = new;
         }
 
         fn rotateL(tree: *Self, node: *Node) void {
             const childR = node.childR.?;
             tree.replace(node, childR);
             node.childR = childR.childL;
-            if (childR.childL) |childL| {
-                childL.parent = node;
-            }
+            if (childR.childL) |childL| childL.parent = node;
             childR.childL = node;
             node.parent = childR;
         }
@@ -295,9 +264,7 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
             const childL = node.childL.?;
             tree.replace(node, childL);
             node.childL = childL.childR;
-            if (childL.childR) |childR| {
-                childR.parent = node;
-            }
+            if (childL.childR) |childR| childR.parent = node;
             childL.childR = node;
             node.parent = childL;
         }
@@ -351,5 +318,12 @@ test "delete" {
     tree.insert(&nodes[6]);
     tree.delete(&nodes[2]);
     tree.insert(&nodes[2]);
+    tree.delete(&nodes[0]);
+    tree.delete(&nodes[1]);
+    tree.delete(&nodes[2]);
+    tree.delete(&nodes[3]);
+    tree.delete(&nodes[4]);
+    tree.delete(&nodes[5]);
+    tree.delete(&nodes[6]);
     // TODO: check if all properties are fulfilled
 }
