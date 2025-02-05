@@ -10,23 +10,12 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License.
+// limitations under the License
 
-const cache = @import("cache.zig");
-const rb_tree = @import("util/rb_tree.zig");
+pub fn Cache(comptime T: type) type {
+    return struct {
+        pub fn acquire() *T {}
 
-const Self = @This();
-
-const UsedMemoryData = struct {
-    addr: usize,
-    size: usize,
-
-    fn compare(a: UsedMemoryData, b: UsedMemoryData) rb_tree.Order {
-        return if (a.addr < b.addr) .lt else if (a.addr > b.addr) .gt else .eq;
-    }
-};
-
-const UsedMemory = rb_tree.Tree(UsedMemoryData, UsedMemoryData.compare);
-const UsedMemoryNodeCache = cache.Cache(UsedMemoryData);
-
-used: UsedMemory = .{},
+        pub fn release(_: *T) void {}
+    };
+}

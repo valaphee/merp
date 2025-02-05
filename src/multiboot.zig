@@ -14,33 +14,19 @@
 
 const c = @cImport(@cInclude("multiboot.h"));
 
-var stack: [0x1000]u8 align(16) = undefined;
 var system = @import("System.zig"){};
 
-export fn _start() linksection(".init") callconv(.Naked) noreturn {
-    asm volatile (
-        \\ mov %[stackTop], %%esp
-        \\ mov %%esp, %%ebp
-        \\ push %%ebx
-        \\ push %%eax
-        \\ call %[main:P]
-        :
-        : [stackTop] "i" (@as([*]align(16) u8, @ptrCast(&stack)) + @sizeOf(@TypeOf(stack))),
-          [main] "X" (&main),
-    );
-}
-
-fn main(
+export fn main(
     multibootMagic: u32,
     multibootInfoAddr: u32,
-) callconv(.C) void {
+) callconv(.C) noreturn {
     if (multibootMagic != c.MULTIBOOT_BOOTLOADER_MAGIC) {
-        return;
+        @trap();
     }
 
     const multibootInfo: *const c.multiboot_info = @ptrFromInt(multibootInfoAddr);
     if (multibootInfo.flags & c.MULTIBOOT_INFO_MEM_MAP == 0) {
-        return;
+        @trap();
     }
 
     const multibootMmapUnsized: [*]const u8 = @ptrFromInt(multibootInfo.mmap_addr);
@@ -52,4 +38,6 @@ fn main(
             system.markFree(multibootMmapEntry.addr, multibootMmapEntry.len);
         }
     }
+
+    @trap();
 }

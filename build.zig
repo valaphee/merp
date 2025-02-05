@@ -24,9 +24,10 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/multiboot.zig"),
         .target = target,
         .optimize = optimize,
-        .code_model = .kernel,
+        //.code_model = .kernel,
     });
     supervisor.addSystemIncludePath(b.path("src"));
     supervisor.setLinkerScript(b.path("src/multiboot_x86.ld"));
+    supervisor.addAssemblyFile(b.path("src/multiboot_x86.S"));
     b.installArtifact(supervisor);
 }

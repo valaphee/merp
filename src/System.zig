@@ -12,85 +12,90 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+const cache = @import("cache.zig");
 const rb_tree = @import("util/rb_tree.zig");
 
 const Self = @This();
 
-const Free = struct {
+const FreeMemoryData = struct {
     addr: u64,
     size: u64,
 
-    fn compare(a: Free, b: Free) rb_tree.Order {
+    fn compare(a: FreeMemoryData, b: FreeMemoryData) rb_tree.Order {
         return if (a.addr < b.addr) .lt else if (a.addr > b.addr) .gt else .eq;
     }
 };
 
-const FreeList = rb_tree.Tree(Free, Free.compare);
+const FreeMemory = rb_tree.Tree(FreeMemoryData, FreeMemoryData.compare);
+const FreeMemoryNodeCache = cache.Cache(FreeMemory.Node);
 
-free: FreeList = .{},
+freeMemory: FreeMemory = .{},
+freeMemoryNodeCache: FreeMemoryNodeCache = .{},
 
-pub fn markUsed(self: *Self, addrOrNull: ?u64, size: u64) ?u64 {
+pub fn markMemoryUsed(self: *Self, addrOrNull: ?u64, size: u64) ?u64 {
     if (addrOrNull) |addr| {
-        const chunk = self.free.searchMax(.{ .addr = addr, .size = 0 }) orelse return null;
-        if (chunk.data.addr + chunk.data.size >= addr + size) {
+        const node = self.freeMemory.searchMax(.{ .addr = addr, .size = 0 }) orelse return null;
+        if (node.data.addr + node.data.size >= addr + size) {
             // trim before
-            if (chunk.data.addr != addr) {
-                var chunk_size = chunk.data.size;
-                chunk.data.size = addr + chunk.data.addr;
-                chunk_size -= chunk.data.size;
+            if (node.data.addr != addr) {
+                var newSize = node.data.size;
+                node.data.size = addr + node.data.addr;
+                newSize -= node.data.size;
 
                 // trim after
-                chunk_size -= size;
-                if (chunk_size != 0) {
-                    // TODO alloc
-                    //self.free.insert(.{ .data = .{ .addr = addr + size, .size = chunk_size } });
+                newSize -= size;
+                if (newSize != 0) {
+                    const newNode = self.freeMemoryNodeCache.acquire();
+                    newNode.data.addr = addr + size;
+                    newNode.data.size = newSize;
+                    self.freeMemory.insert(newNode);
                 }
             } else {
                 // trim after
-                chunk.data.size -= size;
-                if (chunk.data.size != 0) {
-                    chunk.data.addr = addr + size;
+                node.data.size -= size;
+                if (node.data.size != 0) {
+                    node.data.addr = addr + size;
                 } else {
-                    self.free.delete(chunk);
-                    // TODO dealloc
+                    self.freeMemory.delete(node);
+                    self.freeMemoryNodeCache.release(node);
                 }
             }
 
             return addr;
         }
     } else {
-        var chunkOrNull = self.free.searchMin(.{ .addr = 0, .size = 0 });
-        while (chunkOrNull) |chunk| {
+        var nodeOrNull = self.free.searchMin(.{ .addr = 0, .size = 0 });
+        while (nodeOrNull) |node| {
             // first-fit
-            if (chunk.data.size >= size) {
-                chunk.data.size -= size;
-                const addr = chunk.data.addr + chunk.data.size;
-                if (chunk.data.size == 0) {
-                    self.free.delete(chunk);
-                    // TODO dealloc
+            if (node.data.size >= size) {
+                node.data.size -= size;
+                const addr = node.data.addr + node.data.size;
+                if (node.data.size == 0) {
+                    self.freeMemory.delete(node);
+                    self.freeMemoryNodeCache.release(node);
                 }
                 return addr;
             }
-            chunkOrNull = chunk.pred();
+            nodeOrNull = node.pred();
         }
     }
 
     return null;
 }
 
-pub fn markFree(self: *Self, addr: u64, size: u64) void {
-    const chunkOrNull = self.free.searchMax(.{ .addr = addr, .size = 0 });
-    if (chunkOrNull) |chunk| {
+pub fn markMemoryFree(self: *Self, addr: u64, size: u64) void {
+    const nodeOrNull = self.freeMemory.searchMax(.{ .addr = addr, .size = 0 });
+    if (nodeOrNull) |node| {
         // coalesce before
-        if (chunk.data.addr + chunk.data.size == addr) {
-            chunk.data.size += size;
+        if (node.data.addr + node.data.size == addr) {
+            node.data.size += size;
 
             // coalesce in-between
-            if (chunk.succ()) |nextChunk| {
-                if (nextChunk.data.addr == chunk.data.addr + chunk.data.size) {
-                    self.free.delete(nextChunk);
-                    chunk.data.size += nextChunk.data.size;
-                    // TODO dealloc
+            if (node.succ()) |nextNode| {
+                if (nextNode.data.addr == node.data.addr + node.data.size) {
+                    self.freeMemory.delete(nextNode);
+                    node.data.size += nextNode.data.size;
+                    self.freeMemoryNodeCache.release(nextNode);
                 }
             }
 
@@ -98,15 +103,17 @@ pub fn markFree(self: *Self, addr: u64, size: u64) void {
         }
 
         // coalesce after
-        if (chunk.succ()) |nextChunk| {
+        if (node.succ()) |nextChunk| {
             if (nextChunk.data.addr == addr + size) {
-                chunk.data.addr = addr;
-                chunk.data.size += nextChunk.data.size;
+                node.data.addr = addr;
+                node.data.size += nextChunk.data.size;
                 return;
             }
         }
     }
 
-    // TODO alloc
-    //self.free.insert(.{ .data = .{ .addr = addr, .size = size } });
+    const newNode = self.freeMemoryNodeCache.acquire();
+    newNode.data.addr = addr;
+    newNode.data.size = size;
+    self.freeMemory.insert(newNode);
 }
