@@ -327,7 +327,7 @@ test "insert" {
     tree.insert(&nodes[4]);
     tree.insert(&nodes[5]);
     tree.insert(&nodes[6]);
-    // TODO: check if all properties are fulfilled
+    // TODO: check if all properties are satisfied
 }
 
 test "delete" {
@@ -356,5 +356,5 @@ test "delete" {
     tree.delete(&nodes[4]);
     tree.delete(&nodes[5]);
     tree.delete(&nodes[6]);
-    // TODO: check if all properties are fulfilled
+    // TODO: check if all properties are satisfied
 }

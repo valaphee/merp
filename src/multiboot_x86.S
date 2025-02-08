@@ -23,23 +23,19 @@ _start:
     mov edi, eax
     mov esi, ebx
 
-    // build and set rudimentary page table
-    // 00000'000 - 003FF'FFF: id
-    // C0000'000 - C03FF'FFF: id
-    // FFC00'000 - FFFFF'FFF: self ref
-    mov eax, offset ptl1 - 0xC0000000
-    mov ecx, 0x3 // P R/W
-1:
-    mov [eax], ecx
-    add eax  , 4
-    add ecx  , 0x00001000
-    cmp ecx  , 0x00400003
-    jnz 1b
+    // enable PAE
+    mov eax, cr4
+    or  eax, 0x00000020 // CR4.PAE
+    mov cr4, eax
 
+    // build and set rudimentary page table
+    // 0'000'000'0000 - 0'000'777'7777: 000'000'000'000'0000 - 000'000'000'777'7777
+    // 3'000'000'0000 - 3'000'777'7777: 000'000'000'000'0000 - 000'000'000'777'7777
     mov eax                   , offset ptl2 - 0xC0000000
-    mov long ptr [eax + 0xFFC], offset ptl2 - 0xC0000000 + 0x3 // P R/W 3FF: 2
-    mov long ptr [eax + 0x000], offset ptl1 - 0xC0000000 + 0x3 // P R/W 000: 1
-    mov long ptr [eax + 0xC00], offset ptl1 - 0xC0000000 + 0x3 // P R/W 300: 1
+    mov long ptr [eax + 0x000], 0x83
+    mov eax                   , offset ptl3 - 0xC0000000
+    mov long ptr [eax + 0x000], offset ptl2 - 0xC0000000 + 0x3
+    mov long ptr [eax + 0x018], offset ptl2 - 0xC0000000 + 0x3
 
     // enable paging
     mov cr3, eax
@@ -60,6 +56,8 @@ _start:
     .long 2f
     .short (1 << 3) // KCODE
 2:
+    lidt idtr
+
     // setup stack and call main with multiboot arguments
     mov  eax, offset stack_top
     mov  esp, eax
@@ -69,9 +67,11 @@ _start:
     call main
 
 gdtr:
-    .short (6 * 7) - 1
+    .short (7 * 8) - 1
     .long gdt
-
+idtr:
+    .short (48 * 8) - 1
+    .long idt
 
 
     .section .bss
@@ -82,5 +82,5 @@ stack_bottom:
 stack_top:
 ptl2:
     .zero 4096
-ptl1:
-    .zero 4096
+ptl3:
+    .zero 32

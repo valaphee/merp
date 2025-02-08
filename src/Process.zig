@@ -15,6 +15,8 @@
 const cache = @import("cache.zig");
 const rb_tree = @import("util/rb_tree.zig");
 
+const mmu = @import("x86/mmu.zig");
+
 const Self = @This();
 
 const UsedMemoryData = struct {
@@ -27,6 +29,20 @@ const UsedMemoryData = struct {
 };
 
 const UsedMemory = rb_tree.Tree(UsedMemoryData, UsedMemoryData.compare);
-const UsedMemoryNodeCache = cache.Cache(UsedMemoryData);
+const UsedMemoryNodeCache = cache.Cache(UsedMemory.Node);
 
-used: UsedMemory = .{},
+usedMemory: UsedMemory = .{},
+usedMemoryNodeCache: UsedMemoryNodeCache = .{},
+
+addressSpace: mmu.AddressSpace = .{},
+
+pub fn acquireMemory(self: *Self, addrOrNull: ?usize, size: u64) ?usize {
+    _ = self;
+    _ = addrOrNull;
+    _ = size;
+}
+
+pub fn releaseMemory(self: *Self, addr: usize) void {
+    _ = self;
+    _ = addr;
+}

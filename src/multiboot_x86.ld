@@ -1,13 +1,15 @@
 MULTIBOOT_MAGIC = 0x1BADB002;
 MULTIBOOT_FLAGS = 0x00010003;
 
+LOAD = 0000010000;
 BASE = 0xC0000000;
 
 ENTRY(_start)
 
 SECTIONS {
-    _load_addr = .;
+    . = LOAD;
 
+    _load_addr = .;
     .init : {
         // magic (required)
         LONG(MULTIBOOT_MAGIC);

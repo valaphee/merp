@@ -32,6 +32,7 @@ const FreeMemoryNodeCache = cache.Cache(FreeMemory.Node);
 freeMemory: FreeMemory = .{},
 freeMemoryNodeCache: FreeMemoryNodeCache = .{},
 
+/// Marks memory as used
 pub fn markMemoryUsed(self: *Self, addrOrNull: ?u64, size: u64) ?u64 {
     if (addrOrNull) |addr| {
         const node = self.freeMemory.searchMax(.{ .addr = addr, .size = 0 }) orelse return null;
@@ -83,6 +84,7 @@ pub fn markMemoryUsed(self: *Self, addrOrNull: ?u64, size: u64) ?u64 {
     return null;
 }
 
+/// Marks memory as free
 pub fn markMemoryFree(self: *Self, addr: u64, size: u64) void {
     const nodeOrNull = self.freeMemory.searchMax(.{ .addr = addr, .size = 0 });
     if (nodeOrNull) |node| {
