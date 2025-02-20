@@ -28,12 +28,12 @@ export fn main(
     multibootInfoAddr: u32,
 ) callconv(.C) void {
     if (multibootMagic != c.MULTIBOOT_BOOTLOADER_MAGIC) {
-        // TODO
+        @trap(); // TODO
     }
 
     const multibootInfo: *const c.multiboot_info = @ptrFromInt(multibootInfoAddr);
     if (multibootInfo.flags & c.MULTIBOOT_INFO_MEM_MAP == 0) {
-        // TODO
+        @trap(); // TODO
     }
 
     const multibootMmapUnsized: [*]const u8 = @ptrFromInt(multibootInfo.mmap_addr);
@@ -43,6 +43,8 @@ export fn main(
         if (multibootMmapEntry.type == c.MULTIBOOT_MEMORY_AVAILABLE) {
             system.markMemoryFree(multibootMmapEntry.addr, multibootMmapEntry.len);
         }
-        multibootMmap = multibootMmap[(multibootMmapEntry.size + 4)..];
+        multibootMmap = multibootMmap[(@sizeOf(c.multiboot_uint32_t) + multibootMmapEntry.size)..];
     }
+
+    @trap(); // TODO
 }

@@ -31,18 +31,26 @@ const UsedMemoryData = struct {
 const UsedMemory = rb_tree.Tree(UsedMemoryData, UsedMemoryData.compare);
 const UsedMemoryNodeCache = cache.Cache(UsedMemory.Node);
 
+nextMemory: usize = .{},
 usedMemory: UsedMemory = .{},
 usedMemoryNodeCache: UsedMemoryNodeCache = .{},
 
-addressSpace: mmu.AddressSpace = .{},
+pageTable: mmu.PageTable = .{},
 
-pub fn acquireMemory(self: *Self, addrOrNull: ?usize, size: u64) ?usize {
-    _ = self;
+pub fn acquireMemory(self: *Self, addrOrNull: ?usize, size: usize) ?usize {
     _ = addrOrNull;
-    _ = size;
+
+    const node = self.usedMemoryNodeCache.acquire();
+    node.data.addr = self.nextMemory;
+    node.data.size = size;
+    self.usedMemory.insert(node);
+    self.nextMemory += size;
+
+    return node.data.addr;
 }
 
 pub fn releaseMemory(self: *Self, addr: usize) void {
-    _ = self;
-    _ = addr;
+    const node = self.usedMemory.search(addr) orelse return;
+    self.usedMemory.delete(node);
+    self.usedMemoryNodeCache.release(node);
 }

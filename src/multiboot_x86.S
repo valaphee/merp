@@ -28,7 +28,7 @@ _start:
     or  eax, 0x00000020 // CR4.PAE
     mov cr4, eax
 
-    // build and set rudimentary page table
+    // setup page table
     // 0'000'000'0000 - 0'000'777'7777: 000'000'000'000'0000 - 000'000'000'777'7777
     // 3'000'000'0000 - 3'000'777'7777: 000'000'000'000'0000 - 000'000'000'777'7777
     mov eax                   , offset ptl2 - 0xC0000000
@@ -36,9 +36,9 @@ _start:
     mov eax                   , offset ptl3 - 0xC0000000
     mov long ptr [eax + 0x000], offset ptl2 - 0xC0000000 + 0x3
     mov long ptr [eax + 0x018], offset ptl2 - 0xC0000000 + 0x3
+    mov cr3, eax
 
     // enable paging
-    mov cr3, eax
     mov eax, cr0
     or  eax, 0x80000000 // CR0.PG
     mov cr0, eax
@@ -59,9 +59,8 @@ _start:
     lidt idtr
 
     // setup stack and call main with multiboot arguments
-    mov  eax, offset stack_top
-    mov  esp, eax
-    mov  ebp, eax
+    mov  esp, offset stack_top
+    mov  ebp, esp
     push esi
     push edi
     call main
@@ -70,7 +69,7 @@ gdtr:
     .short (7 * 8) - 1
     .long gdt
 idtr:
-    .short (48 * 8) - 1
+    .short (256 * 8) - 1
     .long idt
 
 

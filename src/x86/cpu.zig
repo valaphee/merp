@@ -14,47 +14,6 @@
 
 const builtin = @import("builtin");
 
-/// Input from Port
-pub inline fn in(port: u16, _type: type) _type {
-    return switch (_type) {
-        u8 => asm volatile ("in %[port], %[data]"
-            : [data] "={al}" (-> _type),
-            : [port] "N{dx}" (port),
-        ),
-        u16 => asm volatile ("in %[port], %[data]"
-            : [data] "={ax}" (-> _type),
-            : [port] "N{dx}" (port),
-        ),
-        u32 => asm volatile ("in %[port], %[data]"
-            : [data] "={eax}" (-> _type),
-            : [port] "N{dx}" (port),
-        ),
-        else => @compileError("Expected u8, u16 or u32, found: " ++ @typeName(_type)),
-    };
-}
-
-/// Output to Port
-pub inline fn out(port: u16, data: anytype) void {
-    switch (@TypeOf(data)) {
-        u8 => asm volatile ("out %[data], %[port]"
-            :
-            : [port] "N{dx}" (port),
-              [data] "{al}" (data),
-        ),
-        u16 => asm volatile ("out %[data], %[port]"
-            :
-            : [port] "N{dx}" (port),
-              [data] "{ax}" (data),
-        ),
-        u32 => asm volatile ("out %[data], %[port]"
-            :
-            : [port] "N{dx}" (port),
-              [data] "{eax}" (data),
-        ),
-        else => @compileError("Expected u8, u16 or u32, found: " ++ @typeName(@TypeOf(data))),
-    }
-}
-
 const Descriptor = packed struct {
     limitLo: u16,
     baseLo: u24,
@@ -137,7 +96,7 @@ pub var gdt: [7]Descriptor = .{ .{
     .baseHi = 0x00,
     .limitLo = 0x0000,
     .limitHi = 0x0,
-    .type = 0x9,
+    .type = 0x0,
     .s = false,
     .dpl = 0,
     .l = false,
@@ -149,7 +108,7 @@ pub var gdt: [7]Descriptor = .{ .{
     .baseHi = 0x00,
     .limitLo = 0x0000,
     .limitHi = 0x0,
-    .type = 0x9,
+    .type = 0x0,
     .s = false,
     .dpl = 0,
     .l = false,
@@ -170,7 +129,7 @@ const InterruptDescriptor = packed struct {
 };
 
 // TODO: remove pub when exports from includes are visible to assembly
-pub var idt: [48]InterruptDescriptor = [_]InterruptDescriptor{.{
+pub var idt: [256]InterruptDescriptor = [_]InterruptDescriptor{.{
     .baseLo = 0x0000,
     .baseHi = 0x0000,
     .ss = 0,
@@ -178,4 +137,4 @@ pub var idt: [48]InterruptDescriptor = [_]InterruptDescriptor{.{
     .type = 0,
     .dpl = 0,
     .p = false,
-}} ** 48;
+}} ** 256;

@@ -34,7 +34,7 @@ _start:
     or    eax, 0x00000100 // EFER.LME
     wrmsr
 
-    // build and set rudimentary page table
+    // setup page table
     // 000'000'000'000'0000 - 000'000'000'777'7777: 000'000'000'000'0000 - 000'000'000'777'7777
     // 777'776'000'000'0000 - 777'776'000'777'7777: 000'000'000'000'0000 - 000'000'000'777'7777
     mov eax                   , offset ptl2  - 0xFFFFFFFF80000000
@@ -46,9 +46,9 @@ _start:
     mov eax                   , offset ptl4  - 0xFFFFFFFF80000000
     mov long ptr [eax + 0x000], offset ptl3i - 0xFFFFFFFF80000000 + 0x3
     mov long ptr [eax + 0xFF8], offset ptl3  - 0xFFFFFFFF80000000 + 0x3
+    mov cr3, eax
 
     // enable paging
-    mov cr3, eax
     mov eax, cr0
     or  eax, 0x80000000 // CR0.PG
     mov cr0, eax
@@ -70,9 +70,8 @@ _start:
     lidt idtr
 
     // setup stack and call main with multiboot arguments
-    mov  rax, offset stack_top
-    mov  rsp, rax
-    mov  rbp, rax
+    mov  rsp, offset stack_top
+    mov  ebp, esp
     call main
 
 gdtr_32:
@@ -82,7 +81,7 @@ gdtr_64:
     .short (7 * 8) - 1
     .quad gdt
 idtr:
-    .short (48 * 8) - 1
+    .short (256 * 8) - 1
     .quad idt
 
 

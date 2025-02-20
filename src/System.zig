@@ -65,7 +65,7 @@ pub fn markMemoryUsed(self: *Self, addrOrNull: ?u64, size: u64) ?u64 {
             return addr;
         }
     } else {
-        var nodeOrNull = self.free.searchMin(.{ .addr = 0, .size = 0 });
+        var nodeOrNull = self.freeMemory.searchMin(.{ .addr = 0, .size = 0 });
         while (nodeOrNull) |node| {
             // first-fit
             if (node.data.size >= size) {
@@ -95,8 +95,8 @@ pub fn markMemoryFree(self: *Self, addr: u64, size: u64) void {
             // coalesce in-between
             if (node.succ()) |nextNode| {
                 if (nextNode.data.addr == node.data.addr + node.data.size) {
-                    self.freeMemory.delete(nextNode);
                     node.data.size += nextNode.data.size;
+                    self.freeMemory.delete(nextNode);
                     self.freeMemoryNodeCache.release(nextNode);
                 }
             }
@@ -105,10 +105,10 @@ pub fn markMemoryFree(self: *Self, addr: u64, size: u64) void {
         }
 
         // coalesce after
-        if (node.succ()) |nextChunk| {
-            if (nextChunk.data.addr == addr + size) {
+        if (node.succ()) |nextNode| {
+            if (nextNode.data.addr == addr + size) {
                 node.data.addr = addr;
-                node.data.size += nextChunk.data.size;
+                node.data.size += nextNode.data.size;
                 return;
             }
         }

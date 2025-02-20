@@ -73,7 +73,7 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
             return next;
         }
 
-        /// Returns the first node with a value which is greater-then the given value or null if there is none.
+        /// Returns the first node with a value which is greater-than the given value or null if there is none.
         pub fn searchMin(tree: *Self, data: T) ?*Node {
             var next = tree.root;
             var result: ?*Node = null;
@@ -89,7 +89,7 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
             return result;
         }
 
-        /// Returns the first node with a value which is less-then the given value or null if there is none.
+        /// Returns the first node with a value which is less-than the given value or null if there is none.
         pub fn searchMax(tree: *Self, data: T) ?*Node {
             var next = tree.root;
             var result: ?*Node = null;

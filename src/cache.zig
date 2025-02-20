@@ -10,18 +10,26 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License
+// limitations under the License.
 
 pub fn Cache(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        pub fn acquire(_: *Self) *T {
-            @trap();
+        used: [32]bool = undefined,
+        data: [32]T = undefined,
+
+        pub fn acquire(self: *Self) *T {
+            for (&self.used, &self.data) |*used, *data| {
+                if (!used.*) {
+                    used.* = true;
+                    return data;
+                }
+            }
+
+            @trap(); // TODO
         }
 
-        pub fn release(_: *Self, _: *T) void {
-            @trap();
-        }
+        pub fn release(_: *Self, _: *T) void {}
     };
 }
