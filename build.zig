@@ -4,6 +4,7 @@ const builtin = @import("builtin");
 pub fn build(b: *std.Build) void {
     const arch = b.option(std.Target.Cpu.Arch, "arch", "Architecture to build for") orelse builtin.cpu.arch;
     const optimize = b.standardOptimizeOption(.{});
+
     if (arch.isX86()) {
         var featuresAdd = std.Target.Cpu.Feature.Set.empty;
         var featuresSub = std.Target.Cpu.Feature.Set.empty;
@@ -19,12 +20,11 @@ pub fn build(b: *std.Build) void {
             .cpu_features_add = featuresAdd,
             .cpu_features_sub = featuresSub,
             .os_tag = std.Target.Os.Tag.freestanding,
-            .abi = std.Target.Abi.none,
         };
         const target = b.resolveTargetQuery(targetQuery);
 
         const exe = b.addExecutable(.{
-            .name = "supervisor",
+            .name = "acorn",
             .root_source_file = b.path("src/multiboot.zig"),
             .target = target,
             .optimize = optimize,
@@ -38,6 +38,24 @@ pub fn build(b: *std.Build) void {
             exe.setLinkerScript(b.path("src/multiboot_x86.ld"));
             exe.addAssemblyFile(b.path("src/multiboot_x86.S"));
         }
+        b.installArtifact(exe);
+    }
+    if (arch == .x86_64) {
+        const targetQuery = std.Target.Query{
+            .cpu_arch = arch,
+            .os_tag = std.Target.Os.Tag.uefi,
+        };
+        const target = b.resolveTargetQuery(targetQuery);
+
+        const exe = b.addExecutable(.{
+            .name = "acorn",
+            .root_source_file = b.path("src/uefi.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        exe.addIncludePath(b.path("src"));
+        exe.addIncludePath(b.path("lib/edk2/MdePkg/Include"));
+        exe.addIncludePath(b.path("lib/edk2/MdePkg/Include/X64"));
         b.installArtifact(exe);
     }
 }

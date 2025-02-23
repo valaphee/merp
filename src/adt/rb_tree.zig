@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License
 
-pub const Order = enum(i2) { lt = -1, eq = 0, gt = 1 };
+const Color = enum(u1) { b, r };
 
 /// Red-black tree, a self-balancing binary search tree.
-pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
+pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
     return struct {
         const Self = @This();
 
@@ -61,29 +61,26 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
 
         /// Returns the node with the exact value or null if there is none.
         pub fn search(tree: *Self, data: T) ?*Node {
-            var next = tree.root;
-            while (next) |node| {
-                const order = compare(data, node.data);
-                next = switch (order) {
-                    .lt => node.childL,
-                    .eq => break,
-                    .gt => node.childR,
-                };
+            var nextOrNull = tree.root;
+            while (nextOrNull) |next| {
+                const order = compare(data, next.data);
+                if (order == 0) break;
+                nextOrNull = if (order < 0) next.childL else next.childR;
             }
-            return next;
+            return nextOrNull;
         }
 
         /// Returns the first node with a value which is greater-than the given value or null if there is none.
         pub fn searchMin(tree: *Self, data: T) ?*Node {
-            var next = tree.root;
+            var nextOrNull = tree.root;
             var result: ?*Node = null;
-            while (next) |node| {
-                const order = compare(data, node.data);
-                if (order != .gt) {
-                    result = node;
-                    next = node.childL;
+            while (nextOrNull) |next| {
+                const order = compare(data, next.data);
+                if (order <= 0) {
+                    result = next;
+                    nextOrNull = next.childL;
                 } else {
-                    next = node.childR;
+                    nextOrNull = next.childR;
                 }
             }
             return result;
@@ -91,15 +88,15 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
 
         /// Returns the first node with a value which is less-than the given value or null if there is none.
         pub fn searchMax(tree: *Self, data: T) ?*Node {
-            var next = tree.root;
+            var nextOrNull = tree.root;
             var result: ?*Node = null;
-            while (next) |node| {
-                const order = compare(data, node.data);
-                if (order != .lt) {
-                    result = node;
-                    next = node.childR;
+            while (nextOrNull) |next| {
+                const order = compare(data, next.data);
+                if (order >= 0) {
+                    result = next;
+                    nextOrNull = next.childR;
                 } else {
-                    next = node.childL;
+                    nextOrNull = next.childL;
                 }
             }
             return result;
@@ -110,7 +107,7 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
             node.childL = null;
             node.childR = null;
 
-            var order: Order = undefined;
+            var order: i8 = undefined;
             var parent = tree.root orelse {
                 node.color = .b;
                 node.parent = null;
@@ -119,20 +116,16 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
             };
             while (true) {
                 order = compare(node.data, parent.data);
-                parent = switch (order) {
-                    .lt => parent.childL orelse {
-                        node.color = .r;
-                        node.parent = parent;
-                        parent.childL = node;
-                        break;
-                    },
-                    .eq => unreachable, // TODO
-                    .gt => parent.childR orelse {
-                        node.color = .r;
-                        node.parent = parent;
-                        parent.childR = node;
-                        break;
-                    },
+                parent = if (order < 0) parent.childL orelse {
+                    node.color = .r;
+                    node.parent = parent;
+                    parent.childL = node;
+                    break;
+                } else parent.childR orelse {
+                    node.color = .r;
+                    node.parent = parent;
+                    parent.childR = node;
+                    break;
                 };
             }
 
@@ -302,12 +295,10 @@ pub fn Tree(comptime T: type, comptime compare: fn (a: T, b: T) Order) type {
     };
 }
 
-const Color = enum(u1) { b, r };
-
 const U8Tree = Tree(u8, compareU8);
 
-fn compareU8(a: u8, b: u8) Order {
-    return if (a < b) .lt else if (a > b) .gt else .eq;
+fn compareU8(l: u8, r: u8) i8 {
+    return l - r;
 }
 
 test "insert" {

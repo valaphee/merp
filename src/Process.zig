@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const cache = @import("cache.zig");
-const rb_tree = @import("util/rb_tree.zig");
-
-const mmu = @import("x86/mmu.zig");
+const Order = @import("adt/rb_tree.zig").Order;
+const RbTree = @import("adt/rb_tree.zig").Tree;
+const Cache = @import("cache.zig").Cache;
 
 const Self = @This();
 
@@ -23,34 +22,29 @@ const UsedMemoryData = struct {
     addr: usize,
     size: usize,
 
-    fn compare(a: UsedMemoryData, b: UsedMemoryData) rb_tree.Order {
+    fn compare(a: UsedMemoryData, b: UsedMemoryData) isize {
         return if (a.addr < b.addr) .lt else if (a.addr > b.addr) .gt else .eq;
     }
 };
 
-const UsedMemory = rb_tree.Tree(UsedMemoryData, UsedMemoryData.compare);
-const UsedMemoryNodeCache = cache.Cache(UsedMemory.Node);
+const UsedMemory = RbTree(UsedMemoryData, UsedMemoryData.compare);
+var usedMemoryNodeCache: Cache(UsedMemory.Node) = .{};
 
-nextMemory: usize = .{},
+id: usize,
+
 usedMemory: UsedMemory = .{},
-usedMemoryNodeCache: UsedMemoryNodeCache = .{},
-
-pageTable: mmu.PageTable = .{},
 
 pub fn acquireMemory(self: *Self, addrOrNull: ?usize, size: usize) ?usize {
+    _ = self;
     _ = addrOrNull;
-
-    const node = self.usedMemoryNodeCache.acquire();
-    node.data.addr = self.nextMemory;
-    node.data.size = size;
-    self.usedMemory.insert(node);
-    self.nextMemory += size;
-
-    return node.data.addr;
+    _ = size;
 }
 
 pub fn releaseMemory(self: *Self, addr: usize) void {
-    const node = self.usedMemory.search(addr) orelse return;
-    self.usedMemory.delete(node);
-    self.usedMemoryNodeCache.release(node);
+    _ = self;
+    _ = addr;
+}
+
+pub fn run(self: *Self) noreturn {
+    _ = self;
 }

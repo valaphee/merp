@@ -29,8 +29,7 @@ const Descriptor = packed struct {
     baseHi: u8,
 };
 
-// TODO: remove pub when exports from includes are visible to assembly
-pub var gdt: [7]Descriptor = .{ .{
+export var gdt: [7]Descriptor = .{ .{
     .p = false,
     .baseLo = 0x000000,
     .baseHi = 0x00,
@@ -128,8 +127,7 @@ const InterruptDescriptor = packed struct {
     baseHi: u16,
 };
 
-// TODO: remove pub when exports from includes are visible to assembly
-pub var idt: [256]InterruptDescriptor = [_]InterruptDescriptor{.{
+export var idt: [256]InterruptDescriptor = [_]InterruptDescriptor{.{
     .baseLo = 0x0000,
     .baseHi = 0x0000,
     .ss = 0,

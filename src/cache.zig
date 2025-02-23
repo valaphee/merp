@@ -16,17 +16,7 @@ pub fn Cache(comptime T: type) type {
     return struct {
         const Self = @This();
 
-        used: [32]bool = undefined,
-        data: [32]T = undefined,
-
-        pub fn acquire(self: *Self) *T {
-            for (&self.used, &self.data) |*used, *data| {
-                if (!used.*) {
-                    used.* = true;
-                    return data;
-                }
-            }
-
+        pub fn acquire(_: *Self) *T {
             @trap(); // TODO
         }
 

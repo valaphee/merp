@@ -12,30 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const cache = @import("cache.zig");
-const rb_tree = @import("util/rb_tree.zig");
+const Tree = @import("adt/rb_tree.zig").Tree;
+const Cache = @import("cache.zig").Cache;
 
-const Self = @This();
+const Process = @import("Process.zig");
 
 const FreeMemoryData = struct {
+    const Self = @This();
+
     addr: u64,
     size: u64,
 
-    fn compare(a: FreeMemoryData, b: FreeMemoryData) rb_tree.Order {
-        return if (a.addr < b.addr) .lt else if (a.addr > b.addr) .gt else .eq;
+    fn compare(l: FreeMemoryData, r: FreeMemoryData) i8 {
+        return l.addr - r.addr;
     }
 };
 
-const FreeMemory = rb_tree.Tree(FreeMemoryData, FreeMemoryData.compare);
-const FreeMemoryNodeCache = cache.Cache(FreeMemory.Node);
+const FreeMemory = Tree(FreeMemoryData, FreeMemoryData.compare);
+var freeMemoryNodeCache: Cache(FreeMemory.Node) = .{};
 
-freeMemory: FreeMemory = .{},
-freeMemoryNodeCache: FreeMemoryNodeCache = .{},
+fn compareProcess(l: Process, r: Process) i8 {
+    return l.id - r.id;
+}
 
-/// Marks memory as used
-pub fn markMemoryUsed(self: *Self, addrOrNull: ?u64, size: u64) ?u64 {
+const Processes = Tree(Process, compareProcess);
+var processNodeCache: Cache(Processes.Node) = .{};
+
+var freeMemory: FreeMemory = .{};
+
+var processes: Processes = .{};
+var processQueue = .{};
+var process: Processes.Node = .{};
+
+pub fn markMemoryUsed(addrOrNull: ?u64, size: u64) ?u64 {
     if (addrOrNull) |addr| {
-        const node = self.freeMemory.searchMax(.{ .addr = addr, .size = 0 }) orelse return null;
+        const node = freeMemory.searchMax(.{ .addr = addr, .size = 0 }) orelse return null;
         if (node.data.addr + node.data.size >= addr + size) {
             // trim before
             if (node.data.addr != addr) {
@@ -46,10 +57,10 @@ pub fn markMemoryUsed(self: *Self, addrOrNull: ?u64, size: u64) ?u64 {
                 // trim after
                 newSize -= size;
                 if (newSize != 0) {
-                    const newNode = self.freeMemoryNodeCache.acquire();
+                    const newNode = freeMemoryNodeCache.acquire();
                     newNode.data.addr = addr + size;
                     newNode.data.size = newSize;
-                    self.freeMemory.insert(newNode);
+                    freeMemory.insert(newNode);
                 }
             } else {
                 // trim after
@@ -57,23 +68,23 @@ pub fn markMemoryUsed(self: *Self, addrOrNull: ?u64, size: u64) ?u64 {
                 if (node.data.size != 0) {
                     node.data.addr = addr + size;
                 } else {
-                    self.freeMemory.delete(node);
-                    self.freeMemoryNodeCache.release(node);
+                    freeMemory.delete(node);
+                    freeMemoryNodeCache.release(node);
                 }
             }
 
             return addr;
         }
     } else {
-        var nodeOrNull = self.freeMemory.searchMin(.{ .addr = 0, .size = 0 });
+        var nodeOrNull = freeMemory.searchMin(.{ .addr = 0, .size = 0 });
         while (nodeOrNull) |node| {
             // first-fit
             if (node.data.size >= size) {
                 node.data.size -= size;
                 const addr = node.data.addr + node.data.size;
                 if (node.data.size == 0) {
-                    self.freeMemory.delete(node);
-                    self.freeMemoryNodeCache.release(node);
+                    freeMemory.delete(node);
+                    freeMemoryNodeCache.release(node);
                 }
                 return addr;
             }
@@ -84,9 +95,8 @@ pub fn markMemoryUsed(self: *Self, addrOrNull: ?u64, size: u64) ?u64 {
     return null;
 }
 
-/// Marks memory as free
-pub fn markMemoryFree(self: *Self, addr: u64, size: u64) void {
-    const nodeOrNull = self.freeMemory.searchMax(.{ .addr = addr, .size = 0 });
+pub fn markMemoryFree(addr: u64, size: u64) void {
+    const nodeOrNull = freeMemory.searchMax(.{ .addr = addr, .size = 0 });
     if (nodeOrNull) |node| {
         // coalesce before
         if (node.data.addr + node.data.size == addr) {
@@ -96,8 +106,8 @@ pub fn markMemoryFree(self: *Self, addr: u64, size: u64) void {
             if (node.succ()) |nextNode| {
                 if (nextNode.data.addr == node.data.addr + node.data.size) {
                     node.data.size += nextNode.data.size;
-                    self.freeMemory.delete(nextNode);
-                    self.freeMemoryNodeCache.release(nextNode);
+                    freeMemory.delete(nextNode);
+                    freeMemoryNodeCache.release(nextNode);
                 }
             }
 
@@ -114,8 +124,19 @@ pub fn markMemoryFree(self: *Self, addr: u64, size: u64) void {
         }
     }
 
-    const newNode = self.freeMemoryNodeCache.acquire();
+    const newNode = freeMemoryNodeCache.acquire();
     newNode.data.addr = addr;
     newNode.data.size = size;
-    self.freeMemory.insert(newNode);
+    freeMemory.insert(newNode);
+}
+
+pub fn run() noreturn {
+    while (true) {
+        if (processQueue) |nextProcess| {
+            process = nextProcess;
+            nextProcess.run();
+        } else {
+            // throttle, wait for int
+        }
+    }
 }
