@@ -14,6 +14,8 @@
 
 const builtin = @import("builtin");
 
+const Machine = @import("../Machine.zig");
+
 const Descriptor = packed struct {
     limitLo: u16,
     baseLo: u24,
@@ -29,95 +31,109 @@ const Descriptor = packed struct {
     baseHi: u8,
 };
 
-export var gdt: [7]Descriptor = .{ .{
-    .p = false,
-    .baseLo = 0x000000,
-    .baseHi = 0x00,
-    .limitLo = 0x0000,
-    .limitHi = 0x0,
-    .type = 0x0,
-    .s = false,
-    .dpl = 0,
-    .l = false,
-    .db = false,
-    .g = false,
-}, .{
-    .p = true,
-    .baseLo = 0x000000,
-    .baseHi = 0x00,
-    .limitLo = 0xFFFF,
-    .limitHi = 0xF,
-    .type = 0xB,
-    .s = true,
-    .dpl = 0,
-    .l = builtin.cpu.arch == .x86_64,
-    .db = builtin.cpu.arch == .x86,
-    .g = true,
-}, .{
-    .p = true,
-    .baseLo = 0x000000,
-    .baseHi = 0x00,
-    .limitLo = 0xFFFF,
-    .limitHi = 0xF,
-    .type = 0x3,
-    .s = true,
-    .dpl = 0,
-    .l = false,
-    .db = true,
-    .g = true,
-}, .{
-    .p = true,
-    .baseLo = 0x000000,
-    .baseHi = 0x00,
-    .limitLo = 0xFFFF,
-    .limitHi = 0xF,
-    .type = 0xB,
-    .s = true,
-    .dpl = 3,
-    .l = builtin.cpu.arch == .x86_64,
-    .db = builtin.cpu.arch == .x86,
-    .g = true,
-}, .{
-    .p = true,
-    .baseLo = 0x000000,
-    .baseHi = 0x00,
-    .limitLo = 0xFFFF,
-    .limitHi = 0xF,
-    .type = 0x3,
-    .s = true,
-    .dpl = 3,
-    .l = false,
-    .db = true,
-    .g = true,
-}, .{
-    .p = false,
-    .baseLo = 0x000000,
-    .baseHi = 0x00,
-    .limitLo = 0x0000,
-    .limitHi = 0x0,
-    .type = 0x0,
-    .s = false,
-    .dpl = 0,
-    .l = false,
-    .db = false,
-    .g = false,
-}, .{
-    .p = false,
-    .baseLo = 0x000000,
-    .baseHi = 0x00,
-    .limitLo = 0x0000,
-    .limitHi = 0x0,
-    .type = 0x0,
-    .s = false,
-    .dpl = 0,
-    .l = false,
-    .db = false,
-    .g = false,
-} };
+export var gdt: [7]Descriptor = .{
+    // NULL
+    .{
+        .baseLo = 0x000000,
+        .baseHi = 0x00,
+        .limitLo = 0x0000,
+        .limitHi = 0x0,
+        .type = 0x0,
+        .s = false,
+        .dpl = 0,
+        .p = false,
+        .l = false,
+        .db = false,
+        .g = false,
+    },
+    // KCODE
+    .{
+        .baseLo = 0x000000,
+        .baseHi = 0x00,
+        .limitLo = 0xFFFF,
+        .limitHi = 0xF,
+        .type = 0xB,
+        .s = true,
+        .dpl = 0,
+        .p = true,
+        .l = builtin.cpu.arch == .x86_64,
+        .db = builtin.cpu.arch != .x86_64,
+        .g = true,
+    },
+    // KDATA
+    .{
+        .baseLo = 0x000000,
+        .baseHi = 0x00,
+        .limitLo = 0xFFFF,
+        .limitHi = 0xF,
+        .type = 0x3,
+        .s = true,
+        .dpl = 0,
+        .p = true,
+        .l = false,
+        .db = true,
+        .g = true,
+    },
+    // UCODE
+    .{
+        .baseLo = 0x000000,
+        .baseHi = 0x00,
+        .limitLo = 0xFFFF,
+        .limitHi = 0xF,
+        .type = 0xB,
+        .s = true,
+        .dpl = 3,
+        .p = true,
+        .l = builtin.cpu.arch == .x86_64,
+        .db = builtin.cpu.arch != .x86_64,
+        .g = true,
+    },
+    // UDATA
+    .{
+        .baseLo = 0x000000,
+        .baseHi = 0x00,
+        .limitLo = 0xFFFF,
+        .limitHi = 0xF,
+        .type = 0x3,
+        .s = true,
+        .dpl = 3,
+        .p = true,
+        .l = false,
+        .db = true,
+        .g = true,
+    },
+    // TSS
+    .{
+        .baseLo = 0x000000,
+        .baseHi = 0x00,
+        .limitLo = 0x0000,
+        .limitHi = 0x0,
+        .type = 0x0,
+        .s = false,
+        .dpl = 0,
+        .p = false,
+        .l = false,
+        .db = false,
+        .g = false,
+    },
+    .{
+        .baseLo = 0x000000,
+        .baseHi = 0x00,
+        .limitLo = 0x0000,
+        .limitHi = 0x0,
+        .type = 0x0,
+        .s = false,
+        .dpl = 0,
+        .p = false,
+        .l = false,
+        .db = false,
+        .g = false,
+    },
+};
 
 const InterruptDescriptor = packed struct {
     baseLo: u16,
-    ss: u16,
+    cs: u16,
     ist: u3,
     _0: u5 = 0,
     type: u4,
@@ -128,11 +144,15 @@ const InterruptDescriptor = packed struct {
 };
 
 export var idt: [256]InterruptDescriptor = [_]InterruptDescriptor{.{
+    .p = false,
     .baseLo = 0x0000,
     .baseHi = 0x0000,
-    .ss = 0,
+    .cs = 0,
     .ist = 0,
     .type = 0,
     .dpl = 0,
-    .p = false,
 }} ** 256;
+
+pub fn init(machine: *Machine) void {
+    _ = machine;
+}

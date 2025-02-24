@@ -54,7 +54,7 @@ _start:
     mov cr0, eax
 
     // update segmentation (and switch to 64-bit)
-    lgdt gdtr_32
+    lgdt gdtr32
     mov  ax, (2 << 3) // KDATA
     mov  ds, ax
     mov  es, ax
@@ -66,18 +66,18 @@ _start:
     .long 2f
     .short (1 << 3) // KCODE
 2:  .code64
-    lgdt gdtr_64
+    lgdt gdtr64
     lidt idtr
 
     // setup stack and call main with multiboot arguments
-    mov  rsp, offset stack_top
+    mov  rsp, offset stackTop
     mov  ebp, esp
     call main
 
-gdtr_32:
+gdtr32:
     .short (7 * 8) - 1
     .long gdt - 0xFFFFFFFF80000000
-gdtr_64:
+gdtr64:
     .short (7 * 8) - 1
     .quad gdt
 idtr:
@@ -88,9 +88,9 @@ idtr:
     .section .bss
 
     .align 4096
-stack_bottom:
+stackBtm:
     .zero 4096
-stack_top:
+stackTop:
 ptl2:
     .zero 4096
 ptl3i:

@@ -10,12 +10,9 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License
+// limitations under the License.
 
-const Color = enum(u1) { b, r };
-
-/// Red-black tree, a self-balancing binary search tree.
-pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
+pub fn Set(comptime Data: type, comptime compare: fn (l: Data, r: Data) i8) type {
     return struct {
         const Self = @This();
 
@@ -23,35 +20,33 @@ pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
             childL: ?*Node = null,
             childR: ?*Node = null,
             parent: ?*Node = null,
-            color: Color = .r,
-            data: T,
+            color: enum { b, r } = .r,
+            data: Data,
 
-            /// Returns the next element in the tree or null if it is the last element.
             pub fn succ(node: *Node) ?*Node {
                 if (node.childR) |childR| {
-                    var n = childR;
-                    while (n.childL) |childL| n = childL;
-                    return n;
+                    var next = childR;
+                    while (next.childL) |childL| next = childL;
+                    return next;
                 }
-                var n = node;
-                while (n.parent) |parent| {
-                    if (n == parent.childR) return parent;
-                    n = parent;
+                var next = node;
+                while (next.parent) |parent| {
+                    if (next == parent.childL) return parent;
+                    next = parent;
                 }
                 return null;
             }
 
-            /// Returns the previous element in the tree or null if it is the first element.
             pub fn pred(node: *Node) ?*Node {
                 if (node.childL) |childL| {
-                    var n = childL;
-                    while (n.childR) |childR| n = childR;
-                    return n;
+                    var next = childL;
+                    while (next.childR) |childR| next = childR;
+                    return next;
                 }
-                var n = node;
-                while (n.parent) |parent| {
-                    if (n == parent.childL) return parent;
-                    n = parent;
+                var next = node;
+                while (next.parent) |parent| {
+                    if (next == parent.childR) return parent;
+                    next = parent;
                 }
                 return null;
             }
@@ -59,9 +54,8 @@ pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
 
         root: ?*Node = null,
 
-        /// Returns the node with the exact value or null if there is none.
-        pub fn search(tree: *Self, data: T) ?*Node {
-            var nextOrNull = tree.root;
+        pub fn search(self: *Self, data: Data) ?*Node {
+            var nextOrNull = self.root;
             while (nextOrNull) |next| {
                 const order = compare(data, next.data);
                 if (order == 0) break;
@@ -70,9 +64,8 @@ pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
             return nextOrNull;
         }
 
-        /// Returns the first node with a value which is greater-than the given value or null if there is none.
-        pub fn searchMin(tree: *Self, data: T) ?*Node {
-            var nextOrNull = tree.root;
+        pub fn searchMin(self: *Self, data: Data) ?*Node {
+            var nextOrNull = self.root;
             var result: ?*Node = null;
             while (nextOrNull) |next| {
                 const order = compare(data, next.data);
@@ -86,9 +79,8 @@ pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
             return result;
         }
 
-        /// Returns the first node with a value which is less-than the given value or null if there is none.
-        pub fn searchMax(tree: *Self, data: T) ?*Node {
-            var nextOrNull = tree.root;
+        pub fn searchMax(self: *Self, data: Data) ?*Node {
+            var nextOrNull = self.root;
             var result: ?*Node = null;
             while (nextOrNull) |next| {
                 const order = compare(data, next.data);
@@ -102,16 +94,15 @@ pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
             return result;
         }
 
-        /// Adds a new node to the tree, rebalancing it afterwards.
-        pub fn insert(tree: *Self, node: *Node) void {
+        pub fn insert(self: *Self, node: *Node) void {
             node.childL = null;
             node.childR = null;
 
             var order: i8 = undefined;
-            var parent = tree.root orelse {
+            var parent = self.root orelse {
                 node.color = .b;
                 node.parent = null;
-                tree.root = node;
+                self.root = node;
                 return;
             };
             while (true) {
@@ -139,13 +130,13 @@ pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
                         parent = grandparent.parent orelse break;
                     } else {
                         if (node == parent.childR) {
-                            rotateL(tree, parent);
+                            rotateL(self, parent);
                             parent = parent.parent.?;
                             grandparent = parent.parent.?;
                         }
                         parent.color = .b;
                         grandparent.color = .r;
-                        rotateR(tree, grandparent);
+                        rotateR(self, grandparent);
                     }
                 } else {
                     if (if (grandparent.childL) |n| n.color == .r else false) {
@@ -155,21 +146,20 @@ pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
                         parent = grandparent.parent orelse break;
                     } else {
                         if (node == parent.childL) {
-                            rotateR(tree, parent);
+                            rotateR(self, parent);
                             parent = parent.parent.?;
                             grandparent = parent.parent.?;
                         }
                         parent.color = .b;
                         grandparent.color = .r;
-                        rotateL(tree, grandparent);
+                        rotateL(self, grandparent);
                     }
                 }
             }
-            tree.root.?.color = .b;
+            self.root.?.color = .b;
         }
 
-        /// Removes a node from the tree, rebalancing it afterwards.
-        pub fn delete(tree: *Self, node: *Node) void {
+        pub fn delete(self: *Self, node: *Node) void {
             const target: *Node = if (node.childL != null and node.childR != null) node.succ().? else node;
             const child: ?*Node = if (target.childL != null) target.childL else target.childR;
             if (child != null) child.?.parent = target.parent;
@@ -183,18 +173,18 @@ pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
                     parent.childR = child;
                     nextOrNull = parent.childL;
                 }
-            } else tree.root = child;
+            } else self.root = child;
 
             const rebalance = target.color == .b;
             if (target != node) {
-                tree.replace(node, target);
+                self.replace(node, target);
                 target.childL = node.childL;
                 target.childL.?.parent = target;
                 target.childR = node.childR;
                 if (target.childR) |n| n.parent = target;
                 target.color = node.color;
             }
-            if (!rebalance or tree.root == null) return;
+            if (!rebalance or self.root == null) return;
 
             if (child != null) {
                 child.?.color = .b;
@@ -208,7 +198,7 @@ pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
                     if (next.color == .r) {
                         next.color = .b;
                         parent.color = .r;
-                        rotateL(tree, parent);
+                        rotateL(self, parent);
                         next = next.childL.?.childR.?;
                         parent = next.parent.?;
                     }
@@ -224,21 +214,21 @@ pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
                         if (if (next.childR) |n| n.color == .b else true) {
                             next.childL.?.color = .b;
                             next.color = .r;
-                            rotateR(tree, next);
+                            rotateR(self, next);
                             next = next.parent.?;
                             parent = next.parent.?;
                         }
                         next.color = parent.color;
                         parent.color = .b;
                         next.childR.?.color = .b;
-                        rotateL(tree, parent);
+                        rotateL(self, parent);
                         break;
                     }
                 } else {
                     if (next.color == .r) {
                         next.color = .b;
                         parent.color = .r;
-                        rotateR(tree, parent);
+                        rotateR(self, parent);
                         next = next.childR.?.childL.?;
                         parent = next.parent.?;
                     }
@@ -254,98 +244,43 @@ pub fn Tree(comptime T: type, comptime compare: fn (l: T, r: T) i8) type {
                         if (if (next.childL) |n| n.color == .b else true) {
                             next.childR.?.color = .b;
                             next.color = .r;
-                            rotateL(tree, next);
+                            rotateL(self, next);
                             next = next.parent.?;
                             parent = next.parent.?;
                         }
                         next.color = parent.color;
                         parent.color = .b;
                         next.childL.?.color = .b;
-                        rotateR(tree, parent);
+                        rotateR(self, parent);
                         break;
                     }
                 }
             }
         }
 
-        fn replace(tree: *Self, old: *Node, new: *Node) void {
+        fn replace(self: *Self, old: *Node, new: *Node) void {
             new.parent = old.parent;
             if (old.parent) |parent| {
                 if (old == parent.childL) parent.childL = new else parent.childR = new;
-            } else tree.root = new;
+            } else self.root = new;
         }
 
-        fn rotateL(tree: *Self, node: *Node) void {
+        fn rotateL(self: *Self, node: *Node) void {
             const childR = node.childR.?;
-            tree.replace(node, childR);
+            self.replace(node, childR);
             node.childR = childR.childL;
             if (childR.childL) |childL| childL.parent = node;
             childR.childL = node;
             node.parent = childR;
         }
 
-        fn rotateR(tree: *Self, node: *Node) void {
+        fn rotateR(self: *Self, node: *Node) void {
             const childL = node.childL.?;
-            tree.replace(node, childL);
+            self.replace(node, childL);
             node.childL = childL.childR;
             if (childL.childR) |childR| childR.parent = node;
             childL.childR = node;
             node.parent = childL;
         }
     };
-}
-
-const U8Tree = Tree(u8, compareU8);
-
-fn compareU8(l: u8, r: u8) i8 {
-    return l - r;
-}
-
-test "insert" {
-    var tree = U8Tree{};
-    var nodes: [7]U8Tree.Node = undefined;
-    nodes[0].data = 0;
-    nodes[1].data = 2;
-    nodes[2].data = 1;
-    nodes[3].data = 3;
-    nodes[4].data = 4;
-    nodes[5].data = 5;
-    nodes[6].data = 6;
-    tree.insert(&nodes[0]);
-    tree.insert(&nodes[1]);
-    tree.insert(&nodes[2]);
-    tree.insert(&nodes[3]);
-    tree.insert(&nodes[4]);
-    tree.insert(&nodes[5]);
-    tree.insert(&nodes[6]);
-    // TODO: check if all properties are satisfied
-}
-
-test "delete" {
-    var tree = U8Tree{};
-    var nodes: [7]U8Tree.Node = undefined;
-    nodes[0].data = 0;
-    nodes[1].data = 2;
-    nodes[2].data = 1;
-    nodes[3].data = 3;
-    nodes[4].data = 4;
-    nodes[5].data = 5;
-    nodes[6].data = 6;
-    tree.insert(&nodes[0]);
-    tree.insert(&nodes[1]);
-    tree.insert(&nodes[2]);
-    tree.insert(&nodes[3]);
-    tree.insert(&nodes[4]);
-    tree.insert(&nodes[5]);
-    tree.insert(&nodes[6]);
-    tree.delete(&nodes[2]);
-    tree.insert(&nodes[2]);
-    tree.delete(&nodes[0]);
-    tree.delete(&nodes[1]);
-    tree.delete(&nodes[2]);
-    tree.delete(&nodes[3]);
-    tree.delete(&nodes[4]);
-    tree.delete(&nodes[5]);
-    tree.delete(&nodes[6]);
-    // TODO: check if all properties are satisfied
 }

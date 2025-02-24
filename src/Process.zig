@@ -12,39 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const Order = @import("adt/rb_tree.zig").Order;
-const RbTree = @import("adt/rb_tree.zig").Tree;
+const Set = @import("adt/set.zig").Set;
 const Cache = @import("cache.zig").Cache;
 
-const Self = @This();
+const Process = @This();
 
 const UsedMemoryData = struct {
     addr: usize,
     size: usize,
 
-    fn compare(a: UsedMemoryData, b: UsedMemoryData) isize {
-        return if (a.addr < b.addr) .lt else if (a.addr > b.addr) .gt else .eq;
+    fn compare(l: UsedMemoryData, r: UsedMemoryData) i8 {
+        return if (l.addr < r.addr) -1 else if (l.addr > r.addr) 1 else 0;
     }
 };
 
-const UsedMemory = RbTree(UsedMemoryData, UsedMemoryData.compare);
+const UsedMemory = Set(UsedMemoryData, UsedMemoryData.compare);
 var usedMemoryNodeCache: Cache(UsedMemory.Node) = .{};
 
 id: usize,
 
 usedMemory: UsedMemory = .{},
 
-pub fn acquireMemory(self: *Self, addrOrNull: ?usize, size: usize) ?usize {
-    _ = self;
+pub fn acquireMemory(process: *Process, addrOrNull: ?usize, size: usize) ?usize {
+    _ = process;
     _ = addrOrNull;
     _ = size;
 }
 
-pub fn releaseMemory(self: *Self, addr: usize) void {
-    _ = self;
+pub fn releaseMemory(process: *Process, addr: usize) void {
+    _ = process;
     _ = addr;
 }
 
-pub fn run(self: *Self) noreturn {
-    _ = self;
+pub fn run(process: *Process) noreturn {
+    _ = process;
+    @trap();
 }

@@ -59,7 +59,7 @@ _start:
     lidt idtr
 
     // setup stack and call main with multiboot arguments
-    mov  esp, offset stack_top
+    mov  esp, offset stackTop
     mov  ebp, esp
     push esi
     push edi
@@ -76,9 +76,9 @@ idtr:
     .section .bss
 
     .align 4096
-stack_bottom:
+stackBtm:
     .zero 4096
-stack_top:
+stackTop:
 ptl2:
     .zero 4096
 ptl3:

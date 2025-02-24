@@ -17,7 +17,7 @@ pub fn Cache(comptime T: type) type {
         const Self = @This();
 
         pub fn acquire(_: *Self) *T {
-            @trap(); // TODO
+            @trap();
         }
 
         pub fn release(_: *Self, _: *T) void {}

@@ -13,25 +13,41 @@
 // limitations under the License.
 
 const c = @cImport(@cInclude("Uefi.h"));
+const cpu = @import("x86/cpu.zig");
 
-const machine = @import("machine.zig");
+var machine = @import("Machine.zig"){};
 
-pub export fn EfiMain(ImageHandle: c.EFI_HANDLE, SystemTable: *c.EFI_SYSTEM_TABLE) callconv(.c) noreturn {
+pub export fn EfiMain(ImageHandle: c.EFI_HANDLE, SystemTable: *c.EFI_SYSTEM_TABLE) callconv(.c) c.EFI_STATUS {
     const BootServices = SystemTable.BootServices.*;
+    var Status = c.EFI_SUCCESS;
 
     var MemoryMapSize: usize = 0;
-    if (BootServices.GetMemoryMap.?(&MemoryMapSize, null, null, null, null) != c.EFI_BUFFER_TOO_SMALL) {}
+    Status = BootServices.GetMemoryMap.?(&MemoryMapSize, null, null, null, null);
+    if (Status != c.EFI_BUFFER_TOO_SMALL) {
+        return Status;
+    }
 
     var MemoryMapUnsized: [*]c.EFI_MEMORY_DESCRIPTOR = undefined;
-    if (BootServices.AllocatePool.?(c.EfiBootServicesData, MemoryMapSize, @ptrCast(&MemoryMapUnsized)) != c.EFI_SUCCESS) {}
+    Status = BootServices.AllocatePool.?(c.EfiBootServicesData, MemoryMapSize, @ptrCast(&MemoryMapUnsized));
+    if (Status != c.EFI_SUCCESS) {
+        return Status;
+    }
 
     var MemoryMapKey: usize = undefined;
     var DescriptorSize: usize = undefined;
     var DescriptorVersion: u32 = undefined;
-    if (BootServices.GetMemoryMap.?(&MemoryMapSize, MemoryMapUnsized, &MemoryMapKey, &DescriptorSize, &DescriptorVersion) != c.EFI_SUCCESS) {}
-    if (DescriptorSize != @sizeOf(c.EFI_MEMORY_DESCRIPTOR) or DescriptorVersion != c.EFI_MEMORY_DESCRIPTOR_VERSION) {}
+    Status = BootServices.GetMemoryMap.?(&MemoryMapSize, MemoryMapUnsized, &MemoryMapKey, &DescriptorSize, &DescriptorVersion);
+    if (Status != c.EFI_SUCCESS) {
+        return Status;
+    }
+    if (DescriptorSize != @sizeOf(c.EFI_MEMORY_DESCRIPTOR) or DescriptorVersion != c.EFI_MEMORY_DESCRIPTOR_VERSION) {
+        return c.EFI_UNSUPPORTED;
+    }
 
-    if (BootServices.ExitBootServices.?(ImageHandle, MemoryMapKey) != c.EFI_SUCCESS) {}
+    Status = BootServices.ExitBootServices.?(ImageHandle, MemoryMapKey);
+    if (Status != c.EFI_SUCCESS) {
+        return Status;
+    }
 
     const MemoryMap = MemoryMapUnsized[0 .. MemoryMapSize / @sizeOf(c.EFI_MEMORY_DESCRIPTOR)];
     for (MemoryMap) |MemoryMapDescriptor| {
@@ -41,5 +57,6 @@ pub export fn EfiMain(ImageHandle: c.EFI_HANDLE, SystemTable: *c.EFI_SYSTEM_TABL
         }
     }
 
+    cpu.init(&machine);
     machine.run();
 }
