@@ -313,7 +313,7 @@ pub fn installProcess(process: *Process) noreturn {
         \\pop %r13
         \\pop %r14
         \\pop %r15
-        \\add %rsp, $16
+        \\add $0x10, %rsp
         \\iret
         :
         : [state] "X" (&process.state),
