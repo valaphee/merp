@@ -15,10 +15,12 @@
 const c = @cImport(@cInclude("multiboot.h"));
 const cpu = @import("x86/cpu.zig");
 
-var machine = @import("Machine.zig"){};
+const Machine = @import("Machine.zig");
 
 pub export fn main(multibootMagic: u32, multibootInfoAddr: u32) callconv(.C) noreturn {
     if (multibootMagic != c.MULTIBOOT_BOOTLOADER_MAGIC) {}
+
+    var machine = Machine{};
 
     const multibootInfo: *const c.multiboot_info = @ptrFromInt(multibootInfoAddr);
     if (multibootInfo.flags & c.MULTIBOOT_INFO_MEM_MAP == 0) {}
@@ -34,6 +36,6 @@ pub export fn main(multibootMagic: u32, multibootInfoAddr: u32) callconv(.C) nor
         multibootMmap = multibootMmap[(@sizeOf(c.multiboot_uint32_t) + multibootMmapEntry.size)..];
     }
 
-    cpu.init(&machine);
+    cpu.installMachine(&machine);
     machine.run();
 }

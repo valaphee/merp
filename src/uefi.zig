@@ -15,9 +15,11 @@
 const c = @cImport(@cInclude("Uefi.h"));
 const cpu = @import("x86/cpu.zig");
 
-var machine = @import("Machine.zig"){};
+const Machine = @import("Machine.zig");
 
 pub export fn EfiMain(ImageHandle: c.EFI_HANDLE, SystemTable: *c.EFI_SYSTEM_TABLE) callconv(.c) c.EFI_STATUS {
+    var machine = Machine{};
+
     const BootServices = SystemTable.BootServices.*;
     var Status = c.EFI_SUCCESS;
 
@@ -57,6 +59,6 @@ pub export fn EfiMain(ImageHandle: c.EFI_HANDLE, SystemTable: *c.EFI_SYSTEM_TABL
         }
     }
 
-    cpu.init(&machine);
+    cpu.installMachine(&machine);
     machine.run();
 }

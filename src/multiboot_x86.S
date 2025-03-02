@@ -19,7 +19,7 @@
     .global _start
 _start:
     .code32
-    // save multiboot arguments
+    // save multiboot args
     mov edi, eax
     mov esi, ebx
 
@@ -28,22 +28,20 @@ _start:
     or  eax, 0x00000020 // CR4.PAE
     mov cr4, eax
 
-    // setup page table
+    // enable paging
     // 0'000'000'0000 - 0'000'777'7777: 000'000'000'000'0000 - 000'000'000'777'7777
     // 3'000'000'0000 - 3'000'777'7777: 000'000'000'000'0000 - 000'000'000'777'7777
-    mov eax                   , offset ptl2 - 0xC0000000
-    mov long ptr [eax + 0x000], 0x83
-    mov eax                   , offset ptl3 - 0xC0000000
-    mov long ptr [eax + 0x000], offset ptl2 - 0xC0000000 + 0x3
-    mov long ptr [eax + 0x018], offset ptl2 - 0xC0000000 + 0x3
+    mov eax                    , offset ptl2 - 0xC0000000
+    mov dword ptr [eax + 0x000], 0x83
+    mov eax                    , offset ptl3 - 0xC0000000
+    mov dword ptr [eax + 0x000], offset ptl2 - 0xC0000000 + 0x3
+    mov dword ptr [eax + 0x018], offset ptl2 - 0xC0000000 + 0x3
     mov cr3, eax
-
-    // enable paging
     mov eax, cr0
     or  eax, 0x80000000 // CR0.PG
     mov cr0, eax
 
-    // update segmentation
+    // update gdt
     lgdt gdtr
     mov  ax, (2 << 3) // KDATA
     mov  ds, ax
@@ -58,9 +56,8 @@ _start:
 2:
     lidt idtr
 
-    // setup stack and call main with multiboot arguments
+    // call main with multiboot args
     mov  esp, offset stackTop
-    mov  ebp, esp
     push esi
     push edi
     call main
@@ -76,7 +73,7 @@ idtr:
     .section .bss
 
     .align 4096
-stackBtm:
+stack:
     .zero 4096
 stackTop:
 ptl2:

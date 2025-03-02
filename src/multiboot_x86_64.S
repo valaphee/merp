@@ -19,7 +19,7 @@
     .global _start
 _start:
     .code32
-    // save multiboot arguments
+    // save multiboot args
     mov edi, eax
     mov esi, ebx
 
@@ -34,26 +34,24 @@ _start:
     or    eax, 0x00000100 // EFER.LME
     wrmsr
 
-    // setup page table
+    // enable paging
     // 000'000'000'000'0000 - 000'000'000'777'7777: 000'000'000'000'0000 - 000'000'000'777'7777
     // 777'776'000'000'0000 - 777'776'000'777'7777: 000'000'000'000'0000 - 000'000'000'777'7777
-    mov eax                   , offset ptl2  - 0xFFFFFFFF80000000
-    mov long ptr [eax + 0x000], 0x83
-    mov eax                   , offset ptl3i - 0xFFFFFFFF80000000
-    mov long ptr [eax + 0x000], offset ptl2  - 0xFFFFFFFF80000000 + 0x3
-    mov eax                   , offset ptl3  - 0xFFFFFFFF80000000
-    mov long ptr [eax + 0xFF0], offset ptl2  - 0xFFFFFFFF80000000 + 0x3
-    mov eax                   , offset ptl4  - 0xFFFFFFFF80000000
-    mov long ptr [eax + 0x000], offset ptl3i - 0xFFFFFFFF80000000 + 0x3
-    mov long ptr [eax + 0xFF8], offset ptl3  - 0xFFFFFFFF80000000 + 0x3
+    mov eax                    , offset ptl2  - 0xFFFFFFFF80000000
+    mov dword ptr [eax + 0x000], 0x83
+    mov eax                    , offset ptl3i - 0xFFFFFFFF80000000
+    mov dword ptr [eax + 0x000], offset ptl2  - 0xFFFFFFFF80000000 + 0x3
+    mov eax                    , offset ptl3  - 0xFFFFFFFF80000000
+    mov dword ptr [eax + 0xFF0], offset ptl2  - 0xFFFFFFFF80000000 + 0x3
+    mov eax                    , offset ptl4  - 0xFFFFFFFF80000000
+    mov dword ptr [eax + 0x000], offset ptl3i - 0xFFFFFFFF80000000 + 0x3
+    mov dword ptr [eax + 0xFF8], offset ptl3  - 0xFFFFFFFF80000000 + 0x3
     mov cr3, eax
-
-    // enable paging
     mov eax, cr0
     or  eax, 0x80000000 // CR0.PG
     mov cr0, eax
 
-    // update segmentation (and switch to 64-bit)
+    // update gdt (and activate long mode)
     lgdt gdtr32
     mov  ax, (2 << 3) // KDATA
     mov  ds, ax
@@ -69,9 +67,8 @@ _start:
     lgdt gdtr64
     lidt idtr
 
-    // setup stack and call main with multiboot arguments
+    // call main with multiboot args
     mov  rsp, offset stackTop
-    mov  ebp, esp
     call main
 
 gdtr32:
@@ -88,7 +85,7 @@ idtr:
     .section .bss
 
     .align 4096
-stackBtm:
+stack:
     .zero 4096
 stackTop:
 ptl2:

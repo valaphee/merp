@@ -43,7 +43,6 @@ freeMemory: FreeMemory = .{},
 
 processes: Processes = .{},
 processQueue: ProcessQueue = .{},
-//process: ProcessQueue.Node = .{},
 
 pub fn markMemoryUsed(machine: *Machine, addrOrNull: ?u64, size: u64) ?u64 {
     if (addrOrNull) |addr| {
@@ -134,7 +133,6 @@ pub fn markMemoryFree(machine: *Machine, addr: u64, size: u64) void {
 pub fn run(machine: *Machine) noreturn {
     while (true) {
         if (machine.processQueue.popFront()) |process| {
-            //machine.process = process;
             process.data.run();
         }
         asm volatile ("hlt");

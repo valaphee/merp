@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+const cpu = @import("x86/cpu.zig");
+
 const Set = @import("adt/set.zig").Set;
 const Cache = @import("cache.zig").Cache;
 
@@ -33,6 +35,8 @@ id: usize,
 
 usedMemory: UsedMemory = .{},
 
+state: cpu.State = undefined,
+
 pub fn acquireMemory(process: *Process, addrOrNull: ?usize, size: usize) ?usize {
     _ = process;
     _ = addrOrNull;
@@ -45,6 +49,5 @@ pub fn releaseMemory(process: *Process, addr: usize) void {
 }
 
 pub fn run(process: *Process) noreturn {
-    _ = process;
-    @trap();
+    cpu.installProcess(process);
 }
