@@ -14,7 +14,7 @@
 
     .intel_syntax
 
-    .section .init, "a"
+    .section .init, "aw"
 
     .global _start
 _start:
@@ -44,17 +44,17 @@ _start:
     // update gdt
     lgdt gdtr
     mov  ax, (2 << 3) // KDATA
-    mov  ds, ax
     mov  es, ax
     mov  ss, ax
+    mov  ds, ax
     mov  fs, ax
     mov  gs, ax
-    //ljmp  (1 << 3), 2f
+    //ljmp  (1 << 3), 1f
     .byte 0xEA
-    .long 2f
-    .short (1 << 3) // KCODE
-2:
-    lidt idtr
+    .4byte 1f
+    .2byte (1 << 3) // KCODE
+
+1:  lidt idtr
 
     // call main with multiboot args
     mov  esp, offset stackTop
@@ -63,12 +63,11 @@ _start:
     call main
 
 gdtr:
-    .short (7 * 8) - 1
-    .long gdt
+    .2byte (7 * 8) - 1
+    .4byte gdt
 idtr:
-    .short (256 * 8) - 1
-    .long idt
-
+    .2byte (256 * 8) - 1
+    .4byte idt
 
     .section .bss
 

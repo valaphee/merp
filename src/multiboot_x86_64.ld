@@ -8,8 +8,8 @@ ENTRY(_start)
 
 SECTIONS {
     . = LOAD;
-
     _load_addr = .;
+
     .init : {
         // magic (required)
         LONG(MULTIBOOT_MAGIC);

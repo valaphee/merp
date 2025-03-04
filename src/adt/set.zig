@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub fn Set(comptime Data: type, comptime compare: fn (l: Data, r: Data) i8) type {
+pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
     return struct {
         const Self = @This();
 
@@ -53,6 +53,12 @@ pub fn Set(comptime Data: type, comptime compare: fn (l: Data, r: Data) i8) type
         };
 
         root: ?*Node = null,
+
+        fn compare(l: Data, r: Data) i8 {
+            const lValue = @field(l, orderBy);
+            const rValue = @field(r, orderBy);
+            return if (lValue < rValue) -1 else if (lValue > rValue) 1 else 0;
+        }
 
         pub fn search(self: *Self, data: Data) ?*Node {
             var nextOrNull = self.root;

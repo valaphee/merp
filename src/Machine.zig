@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+const cpu = @import("x86/cpu.zig");
+
 const Queue = @import("adt/queue.zig").Queue;
 const Set = @import("adt/set.zig").Set;
 const Cache = @import("cache.zig").Cache;
@@ -22,26 +24,16 @@ const Process = @import("Process.zig");
 const FreeMemoryData = struct {
     addr: u64,
     size: u64,
-
-    fn compare(l: FreeMemoryData, r: FreeMemoryData) i8 {
-        return if (l.addr < r.addr) -1 else if (l.addr > r.addr) 1 else 0;
-    }
 };
 
-const FreeMemory = Set(FreeMemoryData, FreeMemoryData.compare);
-var freeMemoryNodeCache: Cache(FreeMemory.Node) = .{};
-
-fn compareProcesses(l: ProcessQueue.Node, r: ProcessQueue.Node) i8 {
-    return if (l.data.id < r.data.id) -1 else if (l.data.id > r.data.id) 1 else 0;
-}
+const FreeMemory = Set(FreeMemoryData, "addr");
+var freeMemoryCache: Cache(FreeMemory.Node) = .{};
 
 const ProcessQueue = Queue(Process);
-const Processes = Set(ProcessQueue.Node, compareProcesses);
-var processNodeCache: Cache(Processes.Node) = .{};
+var processCache: Cache(ProcessQueue.Node) = .{};
 
 freeMemory: FreeMemory = .{},
 
-processes: Processes = .{},
 processQueue: ProcessQueue = .{},
 
 pub fn markMemoryUsed(machine: *Machine, addrOrNull: ?u64, size: u64) ?u64 {
@@ -57,9 +49,8 @@ pub fn markMemoryUsed(machine: *Machine, addrOrNull: ?u64, size: u64) ?u64 {
                 // trim after
                 newSize -= size;
                 if (newSize != 0) {
-                    const newNode = freeMemoryNodeCache.acquire();
-                    newNode.data.addr = addr + size;
-                    newNode.data.size = newSize;
+                    const newNode = freeMemoryCache.acquire();
+                    newNode.data = .{ .addr = addr + size, .size = newSize };
                     machine.freeMemory.insert(newNode);
                 }
             } else {
@@ -69,7 +60,7 @@ pub fn markMemoryUsed(machine: *Machine, addrOrNull: ?u64, size: u64) ?u64 {
                     node.data.addr = addr + size;
                 } else {
                     machine.freeMemory.delete(node);
-                    freeMemoryNodeCache.release(node);
+                    freeMemoryCache.release(node);
                 }
             }
 
@@ -84,7 +75,7 @@ pub fn markMemoryUsed(machine: *Machine, addrOrNull: ?u64, size: u64) ?u64 {
                 const addr = node.data.addr + node.data.size;
                 if (node.data.size == 0) {
                     machine.freeMemory.delete(node);
-                    freeMemoryNodeCache.release(node);
+                    freeMemoryCache.release(node);
                 }
                 return addr;
             }
@@ -107,7 +98,7 @@ pub fn markMemoryFree(machine: *Machine, addr: u64, size: u64) void {
                 if (nextNode.data.addr == node.data.addr + node.data.size) {
                     node.data.size += nextNode.data.size;
                     machine.freeMemory.delete(nextNode);
-                    freeMemoryNodeCache.release(nextNode);
+                    freeMemoryCache.release(nextNode);
                 }
             }
 
@@ -124,9 +115,8 @@ pub fn markMemoryFree(machine: *Machine, addr: u64, size: u64) void {
         }
     }
 
-    const newNode = freeMemoryNodeCache.acquire();
-    newNode.data.addr = addr;
-    newNode.data.size = size;
+    const newNode = freeMemoryCache.acquire();
+    newNode.data = .{ .addr = addr, .size = size };
     machine.freeMemory.insert(newNode);
 }
 
@@ -135,6 +125,6 @@ pub fn run(machine: *Machine) noreturn {
         if (machine.processQueue.popFront()) |process| {
             process.data.run();
         }
-        asm volatile ("hlt");
+        cpu.wait();
     }
 }

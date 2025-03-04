@@ -22,30 +22,30 @@ const Process = @This();
 const UsedMemoryData = struct {
     addr: usize,
     size: usize,
-
-    fn compare(l: UsedMemoryData, r: UsedMemoryData) i8 {
-        return if (l.addr < r.addr) -1 else if (l.addr > r.addr) 1 else 0;
-    }
 };
 
-const UsedMemory = Set(UsedMemoryData, UsedMemoryData.compare);
-var usedMemoryNodeCache: Cache(UsedMemory.Node) = .{};
-
-id: usize,
+const UsedMemory = Set(UsedMemoryData, "addr");
+var usedMemoryCache: Cache(UsedMemory.Node) = .{};
 
 usedMemory: UsedMemory = .{},
 
 state: cpu.State = undefined,
 
 pub fn acquireMemory(process: *Process, addrOrNull: ?usize, size: usize) ?usize {
-    _ = process;
-    _ = addrOrNull;
-    _ = size;
+    if (addrOrNull) |addr| {
+        const node = usedMemoryCache.acquire();
+        node.data = .{ .addr = addr, .size = size };
+        process.usedMemory.insert(node);
+    }
+    return addrOrNull;
 }
 
 pub fn releaseMemory(process: *Process, addr: usize) void {
-    _ = process;
-    _ = addr;
+    const nodeOrNull = process.usedMemory.search(.{ .addr = addr, .size = 0 });
+    if (nodeOrNull) |node| {
+        process.usedMemory.delete(node);
+        usedMemoryCache.release(node);
+    }
 }
 
 pub fn run(process: *Process) noreturn {

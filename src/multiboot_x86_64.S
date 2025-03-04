@@ -14,7 +14,7 @@
 
     .intel_syntax
 
-    .section .init, "a"
+    .section .init, "aw"
 
     .global _start
 _start:
@@ -54,16 +54,17 @@ _start:
     // update gdt (and activate long mode)
     lgdt gdtr32
     mov  ax, (2 << 3) // KDATA
-    mov  ds, ax
     mov  es, ax
     mov  ss, ax
+    mov  ds, ax
     mov  fs, ax
     mov  gs, ax
-    //ljmp  (1 << 3), 2f
+    //ljmp  (1 << 3), 1f
     .byte 0xEA
-    .long 2f
-    .short (1 << 3) // KCODE
-2:  .code64
+    .4byte 1f
+    .2byte (1 << 3) // KCODE
+
+1:  .code64
     lgdt gdtr64
     lidt idtr
 
@@ -72,14 +73,14 @@ _start:
     call main
 
 gdtr32:
-    .short (7 * 8) - 1
-    .long gdt - 0xFFFFFFFF80000000
+    .2byte (7 * 8) - 1
+    .4byte gdt - 0xFFFFFFFF80000000
 gdtr64:
-    .short (7 * 8) - 1
-    .quad gdt
+    .2byte (7 * 8) - 1
+    .8byte gdt
 idtr:
-    .short (256 * 8) - 1
-    .quad idt
+    .2byte (256 * 8) - 1
+    .8byte idt
 
 
     .section .bss

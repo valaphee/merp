@@ -17,7 +17,7 @@ const cpu = @import("x86/cpu.zig");
 
 const Machine = @import("Machine.zig");
 
-pub export fn main(multibootMagic: u32, multibootInfoAddr: u32) callconv(.C) noreturn {
+export fn main(multibootMagic: u32, multibootInfoAddr: u32) callconv(.C) noreturn {
     if (multibootMagic != c.MULTIBOOT_BOOTLOADER_MAGIC) {}
 
     var machine = Machine{};

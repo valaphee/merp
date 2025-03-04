@@ -17,6 +17,8 @@ const builtin = @import("builtin");
 const Machine = @import("../Machine.zig");
 const Process = @import("../Process.zig");
 
+const _64 = builtin.cpu.arch == .x86_64;
+
 const Descriptor = packed struct {
     limitLo: u16,
     baseLo: u24,
@@ -65,8 +67,8 @@ export var gdt: [7]Descriptor = .{
         .s = true,
         .dpl = 0,
         .p = true,
-        .l = builtin.cpu.arch == .x86_64,
-        .db = builtin.cpu.arch != .x86_64,
+        .l = _64,
+        .db = !_64,
         .g = true,
     },
     // KDATA
@@ -93,8 +95,8 @@ export var gdt: [7]Descriptor = .{
         .s = true,
         .dpl = 3,
         .p = true,
-        .l = builtin.cpu.arch == .x86_64,
-        .db = builtin.cpu.arch != .x86_64,
+        .l = _64,
+        .db = !_64,
         .g = true,
     },
     // UDATA
@@ -149,12 +151,29 @@ const InterruptDescriptor = packed struct {
     _1: u1 = 0,
     dpl: u2,
     p: bool,
-    baseHi: if (builtin.cpu.arch != .x86_64) u16 else u80,
+    baseHi: if (_64) u48 else u16,
+    _2: if (_64) u32 else u0,
 };
 
 export var idt: [256]InterruptDescriptor = undefined;
 
-const TaskStateSegment = if (builtin.cpu.arch != .x86_64) extern struct {
+const TaskStateSegment = if (_64) extern struct {
+    _0: u32 = 0,
+    sp0: u64 align(4),
+    sp1: u64 align(4),
+    sp2: u64 align(4),
+    _1: u64 align(4) = 0,
+    ist1: u64 align(4),
+    ist2: u64 align(4),
+    ist3: u64 align(4),
+    ist4: u64 align(4),
+    ist5: u64 align(4),
+    ist6: u64 align(4),
+    ist7: u64 align(4),
+    _2: u64 align(4) = 0,
+    _3: u16 = 0,
+    iopb: u16,
+} else extern struct {
     link: u16,
     _0: u16 = 0,
     sp0: u32,
@@ -193,36 +212,20 @@ const TaskStateSegment = if (builtin.cpu.arch != .x86_64) extern struct {
     _10: u16 = 0,
     _11: u16 = 0,
     iopb: u16,
-} else extern struct {
-    _0: u32 = 0,
-    sp0: u64 align(4),
-    sp1: u64 align(4),
-    sp2: u64 align(4),
-    _1: u64 align(4) = 0,
-    ist1: u64 align(4),
-    ist2: u64 align(4),
-    ist3: u64 align(4),
-    ist4: u64 align(4),
-    ist5: u64 align(4),
-    ist6: u64 align(4),
-    ist7: u64 align(4),
-    _2: u64 align(4) = 0,
-    _3: u16 = 0,
-    iopb: u16,
 };
 
 var tss: TaskStateSegment = undefined;
 
 pub const State = extern struct {
-    gpr: [15]u64,
-    int: u64,
-    err: u64,
-    ip: u64,
+    gpr: [if (_64) 15 else 7]usize,
+    int: u8,
+    err: u32,
+    ip: usize,
     cs: u16,
-    fl: u64,
-    sp: u64,
+    fl: usize,
+    sp: usize,
     ss: u16,
-    mc: u64,
+    mc: usize,
 };
 
 fn isr(comptime int: u8) fn () callconv(.Naked) noreturn {
@@ -243,7 +246,7 @@ fn isr(comptime int: u8) fn () callconv(.Naked) noreturn {
 }
 
 export fn isrCommon() callconv(.Naked) noreturn {
-    asm volatile (
+    if (_64) asm volatile (
         \\push %r15
         \\push %r14
         \\push %r13
@@ -260,8 +263,31 @@ export fn isrCommon() callconv(.Naked) noreturn {
         \\push %rdx
         \\push %rcx
         \\push %rax
+        \\jmp %[run:P]
+        :
+        : [run] "X" (&Machine.run),
+    ) else asm volatile (
+        \\push %edi
+        \\push %esi
+        \\push %ebp
+        //push %esp
+        \\push %ebx
+        \\push %edx
+        \\push %ecx
+        \\push %eax
+        \\jmp %[run:P]
+        :
+        : [run] "X" (&Machine.run),
     );
 }
+
+const isrs = blk: {
+    var _isrs: [256]*const fn () callconv(.Naked) noreturn = undefined;
+    for (&_isrs, 0..) |*_isr, i| {
+        _isr.* = &isr(i);
+    }
+    break :blk _isrs;
+};
 
 pub fn installMachine(_: *Machine) void {
     tss.iopb = @sizeOf(@TypeOf(tss));
@@ -270,7 +296,7 @@ pub fn installMachine(_: *Machine) void {
     const tssSize = @sizeOf(@TypeOf(tss)) - 1;
     gdt[TSS].baseLo = @truncate(tssAddr);
     gdt[TSS].baseHi = @truncate(tssAddr >> 24);
-    if (builtin.cpu.arch == .x86_64) {
+    if (_64) {
         gdt[TSS64].limitLo = @truncate(tssAddr >> 32);
         gdt[TSS64].baseLo = @truncate(tssAddr >> 48);
     }
@@ -281,10 +307,10 @@ pub fn installMachine(_: *Machine) void {
         : [tss] "{ax}" (TSS << 3),
     );
 
-    inline for (&idt, 0..) |*id, i| {
-        const isrAddr = @intFromPtr(&isr(i));
+    for (&idt, &isrs) |*id, _isr| {
+        const isrAddr = @intFromPtr(_isr);
         id.baseLo = @truncate(isrAddr);
-        id.baseHi = isrAddr >> 16;
+        id.baseHi = @truncate(isrAddr >> 16);
         id.cs = KCODE << 3;
         id.ist = 0;
         id.type = 0xE;
@@ -295,8 +321,8 @@ pub fn installMachine(_: *Machine) void {
 
 pub fn installProcess(process: *Process) noreturn {
     tss.sp0 = @intFromPtr(&process.state) + @offsetOf(@TypeOf(process.state), "mc");
-    asm volatile (
-        \\mov %rsp, %[state]
+    if (_64) asm volatile (
+        \\mov %[state], %rsp
         \\pop %rax
         \\pop %rcx
         \\pop %rdx
@@ -317,6 +343,24 @@ pub fn installProcess(process: *Process) noreturn {
         \\iret
         :
         : [state] "X" (&process.state),
+    ) else asm volatile (
+        \\mov %[state], %esp
+        \\pop %eax
+        \\pop %ecx
+        \\pop %edx
+        \\pop %ebx
+        //pop %esp
+        \\pop %ebp
+        \\pop %esi
+        \\pop %edi
+        \\add $0x10, %esp
+        \\iret
+        :
+        : [state] "X" (&process.state),
     );
     unreachable;
+}
+
+pub fn wait() void {
+    asm volatile ("hlt");
 }
