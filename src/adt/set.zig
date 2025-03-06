@@ -266,6 +266,12 @@ pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
             }
         }
 
+        fn compare(l: Data, r: Data) i8 {
+            const lValue = @field(l, orderBy);
+            const rValue = @field(r, orderBy);
+            return if (lValue < rValue) -1 else if (lValue > rValue) 1 else 0;
+        }
+
         fn replace(self: *Self, old: *Node, new: *Node) void {
             new.parent = old.parent;
             if (old.parent) |parent| {
@@ -289,12 +295,6 @@ pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
             if (childL.childR) |childR| childR.parent = node;
             childL.childR = node;
             node.parent = childL;
-        }
-
-        fn compare(l: Data, r: Data) i8 {
-            const lValue = @field(l, orderBy);
-            const rValue = @field(r, orderBy);
-            return if (lValue < rValue) -1 else if (lValue > rValue) 1 else 0;
         }
     };
 }

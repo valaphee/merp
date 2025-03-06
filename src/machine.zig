@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const cpu = @import("x86/cpu.zig");
-
 const Queue = @import("adt/queue.zig").Queue;
 const Set = @import("adt/set.zig").Set;
 const Cache = @import("cache.zig").Cache;
 
-const Machine = @This();
 const Process = @import("Process.zig");
 
 const FreeMemoryData = struct {
@@ -121,10 +118,5 @@ pub fn markMemoryFree(addr: u64, size: u64) void {
 }
 
 pub fn run() noreturn {
-    while (true) {
-        if (processQueue.popFront()) |process| {
-            process.data.run();
-        }
-        cpu.wait();
-    }
+    processQueue.popFront().?.data.run();
 }

@@ -19,8 +19,6 @@ const Process = @import("../Process.zig");
 
 const _64 = builtin.cpu.arch == .x86_64;
 
-export var stack: [4096]u8 align(16) = undefined;
-
 const Descriptor = packed struct {
     limitLo: u16,
     baseLo: u24,
@@ -124,7 +122,7 @@ export var gdt: [7]Descriptor = .{
         .type = 0x9,
         .s = false,
         .dpl = 0,
-        .p = false,
+        .p = true,
         .l = false,
         .db = false,
         .g = false,
@@ -245,6 +243,8 @@ fn isr(comptime int: u8) fn () callconv(.Naked) noreturn {
         }
     }._;
 }
+
+export var stack: [4096]u8 align(16) = undefined;
 
 export fn isrCommon() callconv(.Naked) noreturn {
     if (_64) asm volatile (

@@ -27,19 +27,29 @@ pub fn Cache(comptime T: type) type {
             items: [itemsPerNode]T,
         };
 
+        var nodeZero: Node align(4096) = undefined;
+
         head: ?*Node = null,
 
         pub fn acquire(self: *Self) *T {
             var nodeOrNull = self.head;
             while (nodeOrNull) |node| {
-                if (node.nextItem < (1 << 8) - 1) {
+                if (node.nextItem != (1 << 8) - 1) {
                     const item = &node.items[node.nextItem];
                     node.nextItem = node.nextItems[node.nextItem];
                     return item;
                 }
                 nodeOrNull = node.next;
             }
-            unreachable; // TODO: new node
+
+            const node: *Node = &nodeZero;
+            self.head = node;
+            node.next = null;
+            node.nextItem = 1;
+            for (&node.nextItems, 1..) |*nextItem, i| {
+                nextItem.* = @intCast(i);
+            }
+            return &node.items[0];
         }
 
         pub fn release(self: *Self, item: *T) void {
