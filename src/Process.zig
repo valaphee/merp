@@ -49,5 +49,5 @@ pub fn releaseMemory(process: *Process, addr: usize) void {
 }
 
 pub fn run(process: *Process) noreturn {
-    cpu.installProcess(process);
+    cpu.initProcess(process);
 }

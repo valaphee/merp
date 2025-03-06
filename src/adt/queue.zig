@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// Queue implemented using doubly linked lists.
 pub fn Queue(comptime Data: type) type {
     return struct {
         const Self = @This();
@@ -25,34 +26,31 @@ pub fn Queue(comptime Data: type) type {
         head: ?*Node = null,
         tail: ?*Node = null,
 
+        /// Preprends a node to the queue.
         pub fn pushFront(self: *Self, node: *Node) void {
+            node.next = self.head;
+            self.head = node;
+            node.prev = null;
             if (self.head) |head| {
-                node.next = head;
-                node.prev = null;
-                self.head = node;
                 head.prev = node;
             } else {
-                node.next = null;
-                node.prev = null;
-                self.head = node;
                 self.tail = node;
             }
         }
 
+        /// Appends a node to the back of the queue.
         pub fn pushBack(self: *Self, node: *Node) void {
+            node.prev = self.tail;
+            self.tail = node;
+            node.next = null;
             if (self.tail) |tail| {
-                node.prev = tail;
-                node.next = null;
-                self.tail = node;
-                tail.next = node;
+                tail.prev = node;
             } else {
-                node.next = null;
-                node.prev = null;
                 self.head = node;
-                self.tail = node;
             }
         }
 
+        /// Removes the specified node from the queue.
         pub fn delete(self: *Self, node: *Node) void {
             if (node.prev) |prev| {
                 prev.next = node.next;
@@ -66,12 +64,14 @@ pub fn Queue(comptime Data: type) type {
             }
         }
 
+        /// Removes the first element and returns it, or null if the queue is empty.
         pub fn popFront(self: *Self) ?*Node {
             const head = self.head orelse return null;
             self.delete(head);
             return head;
         }
 
+        /// Removes the last element and returns it, or null if the queue is empty.
         pub fn popBack(self: *Self) ?*Node {
             const tail = self.tail orelse return null;
             self.delete(tail);

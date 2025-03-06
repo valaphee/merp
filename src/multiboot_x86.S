@@ -57,7 +57,7 @@ _start:
 1:  lidt idtr
 
     // call main with multiboot args
-    mov  esp, offset stackTop
+    mov  esp, offset stack + 0x1000
     push esi
     push edi
     call main
@@ -72,9 +72,6 @@ idtr:
     .section .bss
 
     .align 4096
-stack:
-    .zero 4096
-stackTop:
 ptl2:
     .zero 4096
 ptl3:

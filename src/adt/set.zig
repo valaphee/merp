@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// Set that further provides total ordering and allows for duplicates accomplished by using red-black trees.
 pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
     return struct {
         const Self = @This();
@@ -23,6 +24,7 @@ pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
             color: enum { b, r } = .r,
             data: Data,
 
+            /// Returns the next larger node or null if it is the last element.
             pub fn succ(node: *Node) ?*Node {
                 if (node.childR) |childR| {
                     var next = childR;
@@ -37,6 +39,7 @@ pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
                 return null;
             }
 
+            /// Returns the next smaller node or null if it is the first element.
             pub fn pred(node: *Node) ?*Node {
                 if (node.childL) |childL| {
                     var next = childL;
@@ -54,12 +57,7 @@ pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
 
         root: ?*Node = null,
 
-        fn compare(l: Data, r: Data) i8 {
-            const lValue = @field(l, orderBy);
-            const rValue = @field(r, orderBy);
-            return if (lValue < rValue) -1 else if (lValue > rValue) 1 else 0;
-        }
-
+        /// Returns the node with the exact value or null if there is no such node in the set.
         pub fn search(self: *Self, data: Data) ?*Node {
             var nextOrNull = self.root;
             while (nextOrNull) |next| {
@@ -70,6 +68,7 @@ pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
             return nextOrNull;
         }
 
+        /// Returns the least node with a value greater than the given value or null if there is no such node in the set.
         pub fn searchMin(self: *Self, data: Data) ?*Node {
             var nextOrNull = self.root;
             var result: ?*Node = null;
@@ -85,6 +84,7 @@ pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
             return result;
         }
 
+        /// Returns the greatest node with a value less than the given value or null if there is no such node in the set.
         pub fn searchMax(self: *Self, data: Data) ?*Node {
             var nextOrNull = self.root;
             var result: ?*Node = null;
@@ -100,6 +100,7 @@ pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
             return result;
         }
 
+        /// Adds the specified node to the set.
         pub fn insert(self: *Self, node: *Node) void {
             node.childL = null;
             node.childR = null;
@@ -165,6 +166,7 @@ pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
             self.root.?.color = .b;
         }
 
+        /// Removes the specified node from the set if it is present.
         pub fn delete(self: *Self, node: *Node) void {
             const target: *Node = if (node.childL != null and node.childR != null) node.succ().? else node;
             const child: ?*Node = if (target.childL != null) target.childL else target.childR;
@@ -287,6 +289,12 @@ pub fn Set(comptime Data: type, comptime orderBy: []const u8) type {
             if (childL.childR) |childR| childR.parent = node;
             childL.childR = node;
             node.parent = childL;
+        }
+
+        fn compare(l: Data, r: Data) i8 {
+            const lValue = @field(l, orderBy);
+            const rValue = @field(r, orderBy);
+            return if (lValue < rValue) -1 else if (lValue > rValue) 1 else 0;
         }
     };
 }

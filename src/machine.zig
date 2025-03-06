@@ -32,13 +32,13 @@ var freeMemoryCache: Cache(FreeMemory.Node) = .{};
 const ProcessQueue = Queue(Process);
 var processCache: Cache(ProcessQueue.Node) = .{};
 
-freeMemory: FreeMemory = .{},
+var freeMemory: FreeMemory = .{};
 
-processQueue: ProcessQueue = .{},
+var processQueue: ProcessQueue = .{};
 
-pub fn markMemoryUsed(machine: *Machine, addrOrNull: ?u64, size: u64) ?u64 {
+pub fn markMemoryUsed(addrOrNull: ?u64, size: u64) ?u64 {
     if (addrOrNull) |addr| {
-        const node = machine.freeMemory.searchMax(.{ .addr = addr, .size = 0 }) orelse return null;
+        const node = freeMemory.searchMax(.{ .addr = addr, .size = 0 }) orelse return null;
         if (node.data.addr + node.data.size >= addr + size) {
             // trim before
             if (node.data.addr != addr) {
@@ -51,7 +51,7 @@ pub fn markMemoryUsed(machine: *Machine, addrOrNull: ?u64, size: u64) ?u64 {
                 if (newSize != 0) {
                     const newNode = freeMemoryCache.acquire();
                     newNode.data = .{ .addr = addr + size, .size = newSize };
-                    machine.freeMemory.insert(newNode);
+                    freeMemory.insert(newNode);
                 }
             } else {
                 // trim after
@@ -59,7 +59,7 @@ pub fn markMemoryUsed(machine: *Machine, addrOrNull: ?u64, size: u64) ?u64 {
                 if (node.data.size != 0) {
                     node.data.addr = addr + size;
                 } else {
-                    machine.freeMemory.delete(node);
+                    freeMemory.delete(node);
                     freeMemoryCache.release(node);
                 }
             }
@@ -67,14 +67,14 @@ pub fn markMemoryUsed(machine: *Machine, addrOrNull: ?u64, size: u64) ?u64 {
             return addr;
         }
     } else {
-        var nodeOrNull = machine.freeMemory.searchMin(.{ .addr = 0, .size = 0 });
+        var nodeOrNull = freeMemory.searchMin(.{ .addr = 0, .size = 0 });
         while (nodeOrNull) |node| {
             // first-fit
             if (node.data.size >= size) {
                 node.data.size -= size;
                 const addr = node.data.addr + node.data.size;
                 if (node.data.size == 0) {
-                    machine.freeMemory.delete(node);
+                    freeMemory.delete(node);
                     freeMemoryCache.release(node);
                 }
                 return addr;
@@ -86,8 +86,8 @@ pub fn markMemoryUsed(machine: *Machine, addrOrNull: ?u64, size: u64) ?u64 {
     return null;
 }
 
-pub fn markMemoryFree(machine: *Machine, addr: u64, size: u64) void {
-    const nodeOrNull = machine.freeMemory.searchMax(.{ .addr = addr, .size = 0 });
+pub fn markMemoryFree(addr: u64, size: u64) void {
+    const nodeOrNull = freeMemory.searchMax(.{ .addr = addr, .size = 0 });
     if (nodeOrNull) |node| {
         // coalesce before
         if (node.data.addr + node.data.size == addr) {
@@ -97,7 +97,7 @@ pub fn markMemoryFree(machine: *Machine, addr: u64, size: u64) void {
             if (node.succ()) |nextNode| {
                 if (nextNode.data.addr == node.data.addr + node.data.size) {
                     node.data.size += nextNode.data.size;
-                    machine.freeMemory.delete(nextNode);
+                    freeMemory.delete(nextNode);
                     freeMemoryCache.release(nextNode);
                 }
             }
@@ -117,12 +117,12 @@ pub fn markMemoryFree(machine: *Machine, addr: u64, size: u64) void {
 
     const newNode = freeMemoryCache.acquire();
     newNode.data = .{ .addr = addr, .size = size };
-    machine.freeMemory.insert(newNode);
+    freeMemory.insert(newNode);
 }
 
-pub fn run(machine: *Machine) noreturn {
+pub fn run() noreturn {
     while (true) {
-        if (machine.processQueue.popFront()) |process| {
+        if (processQueue.popFront()) |process| {
             process.data.run();
         }
         cpu.wait();

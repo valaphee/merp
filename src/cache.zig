@@ -13,13 +13,50 @@
 // limitations under the License.
 
 pub fn Cache(comptime T: type) type {
+    const bytesPerNode = 4096;
+    const itemsPerNode = (bytesPerNode - @sizeOf(*u8) - @sizeOf(u8)) / (@sizeOf(T) + @sizeOf(u8));
+
     return struct {
         const Self = @This();
 
-        pub fn acquire(_: *Self) *T {
-            @trap();
+        const Node = struct {
+            next: ?*Node = null,
+
+            nextItem: u8,
+            nextItems: [itemsPerNode]u8,
+            items: [itemsPerNode]T,
+        };
+
+        head: ?*Node = null,
+
+        pub fn acquire(self: *Self) *T {
+            var nodeOrNull = self.head;
+            while (nodeOrNull) |node| {
+                if (node.nextItem < (1 << 8) - 1) {
+                    const item = &node.items[node.nextItem];
+                    node.nextItem = node.nextItems[node.nextItem];
+                    return item;
+                }
+                nodeOrNull = node.next;
+            }
+            unreachable; // TODO: new node
         }
 
-        pub fn release(_: *Self, _: *T) void {}
+        pub fn release(self: *Self, item: *T) void {
+            var nodeOrNull = self.head;
+            while (nodeOrNull) |node| {
+                const itemAddr = @intFromPtr(item);
+                const itemBaseAddr = @intFromPtr(&node.items[0]);
+                const itemLastAddr = @intFromPtr(&node.items[itemsPerNode - 1]);
+                if (itemAddr >= itemBaseAddr or itemAddr <= itemLastAddr) {
+                    const nextItem: u8 = @intCast((itemAddr - itemBaseAddr) / @sizeOf(Node));
+                    node.nextItems[nextItem] = node.nextItem;
+                    node.nextItem = nextItem;
+                    return;
+                }
+                nodeOrNull = node.next;
+            }
+            unreachable; // TODO: item does not belong to any node
+        }
     };
 }

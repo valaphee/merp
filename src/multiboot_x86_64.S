@@ -69,7 +69,7 @@ _start:
     lidt idtr
 
     // call main with multiboot args
-    mov  rsp, offset stackTop
+    mov  rsp, offset stack + 0x1000
     call main
 
 gdtr32:
@@ -86,9 +86,6 @@ idtr:
     .section .bss
 
     .align 4096
-stack:
-    .zero 4096
-stackTop:
 ptl2:
     .zero 4096
 ptl3i:

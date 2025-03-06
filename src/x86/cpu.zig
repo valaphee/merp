@@ -14,10 +14,12 @@
 
 const builtin = @import("builtin");
 
-const Machine = @import("../Machine.zig");
+const machine = @import("../machine.zig");
 const Process = @import("../Process.zig");
 
 const _64 = builtin.cpu.arch == .x86_64;
+
+export var stack: [4096]u8 align(16) = undefined;
 
 const Descriptor = packed struct {
     limitLo: u16,
@@ -225,7 +227,6 @@ pub const State = extern struct {
     fl: usize,
     sp: usize,
     ss: u16,
-    mc: usize,
 };
 
 fn isr(comptime int: u8) fn () callconv(.Naked) noreturn {
@@ -263,9 +264,11 @@ export fn isrCommon() callconv(.Naked) noreturn {
         \\push %rdx
         \\push %rcx
         \\push %rax
-        \\jmp %[run:P]
+        \\mov %[stackTop], %rsp
+        \\call %[run:P]
         :
-        : [run] "X" (&Machine.run),
+        : [stackTop] "i" (@as([*]align(16) u8, @ptrCast(&stack)) + @sizeOf(@TypeOf(stack))),
+          [run] "X" (&machine.run),
     ) else asm volatile (
         \\push %edi
         \\push %esi
@@ -275,9 +278,11 @@ export fn isrCommon() callconv(.Naked) noreturn {
         \\push %edx
         \\push %ecx
         \\push %eax
-        \\jmp %[run:P]
+        \\mov %[stackTop], %esp
+        \\call %[run:P]
         :
-        : [run] "X" (&Machine.run),
+        : [stackTop] "i" (@as([*]align(16) u8, @ptrCast(&stack)) + @sizeOf(@TypeOf(stack))),
+          [run] "X" (&machine.run),
     );
 }
 
@@ -289,7 +294,7 @@ const isrs = blk: {
     break :blk _isrs;
 };
 
-pub fn installMachine(_: *Machine) void {
+pub fn init() void {
     tss.iopb = @sizeOf(@TypeOf(tss));
 
     const tssAddr = @intFromPtr(&tss);
@@ -319,8 +324,8 @@ pub fn installMachine(_: *Machine) void {
     }
 }
 
-pub fn installProcess(process: *Process) noreturn {
-    tss.sp0 = @intFromPtr(&process.state) + @offsetOf(@TypeOf(process.state), "mc");
+pub fn initProcess(process: *Process) noreturn {
+    tss.sp0 = @intFromPtr(&process.state) + @sizeOf(@TypeOf(process.state));
     if (_64) asm volatile (
         \\mov %[state], %rsp
         \\pop %rax
