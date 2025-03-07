@@ -22,9 +22,9 @@ pub fn Cache(comptime T: type) type {
         const Node = struct {
             next: ?*Node = null,
 
-            nextItem: u8,
-            nextItems: [itemsPerNode]u8,
-            items: [itemsPerNode]T,
+            itemNext: u8,
+            itemFree: [itemsPerNode]u8,
+            item: [itemsPerNode]T,
         };
 
         var nodeZero: Node align(4096) = undefined;
@@ -32,36 +32,36 @@ pub fn Cache(comptime T: type) type {
         head: ?*Node = null,
 
         pub fn acquire(self: *Self) *T {
+            if (self.head == null) {
+                const node: *Node = &nodeZero;
+                for (&node.itemFree, 1..) |*itemFree, i| {
+                    itemFree.* = @intCast(i);
+                }
+                self.head = node;
+            }
+
             var nodeOrNull = self.head;
             while (nodeOrNull) |node| {
-                if (node.nextItem != (1 << 8) - 1) {
-                    const item = &node.items[node.nextItem];
-                    node.nextItem = node.nextItems[node.nextItem];
+                if (node.itemNext != (1 << 8) - 1) {
+                    const item = &node.item[node.itemNext];
+                    node.itemNext = node.itemFree[node.itemNext];
                     return item;
                 }
                 nodeOrNull = node.next;
             }
-
-            const node: *Node = &nodeZero;
-            self.head = node;
-            node.next = null;
-            node.nextItem = 1;
-            for (&node.nextItems, 1..) |*nextItem, i| {
-                nextItem.* = @intCast(i);
-            }
-            return &node.items[0];
+            unreachable; // TODO: new node
         }
 
         pub fn release(self: *Self, item: *T) void {
             var nodeOrNull = self.head;
             while (nodeOrNull) |node| {
                 const itemAddr = @intFromPtr(item);
-                const itemBaseAddr = @intFromPtr(&node.items[0]);
-                const itemLastAddr = @intFromPtr(&node.items[itemsPerNode - 1]);
+                const itemBaseAddr = @intFromPtr(&node.item[0]);
+                const itemLastAddr = @intFromPtr(&node.item[itemsPerNode - 1]);
                 if (itemAddr >= itemBaseAddr or itemAddr <= itemLastAddr) {
                     const nextItem: u8 = @intCast((itemAddr - itemBaseAddr) / @sizeOf(Node));
-                    node.nextItems[nextItem] = node.nextItem;
-                    node.nextItem = nextItem;
+                    node.itemFree[nextItem] = node.itemNext;
+                    node.itemNext = nextItem;
                     return;
                 }
                 nodeOrNull = node.next;

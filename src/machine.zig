@@ -12,15 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+///////////////////////////////////////////////////////////////////////////////
+// Externs
+///////////////////////////////////////////////////////////////////////////////
+
+const cpu = @import("x86/cpu.zig");
+
+const Cache = @import("cache.zig").Cache;
 const Queue = @import("adt/queue.zig").Queue;
 const Set = @import("adt/set.zig").Set;
-const Cache = @import("cache.zig").Cache;
 
 const Process = @import("Process.zig");
 
+///////////////////////////////////////////////////////////////////////////////
+// Globals
+///////////////////////////////////////////////////////////////////////////////
+
 const FreeMemoryData = struct {
-    addr: u64,
-    size: u64,
+    addr: cpu.PhysAddr,
+    size: cpu.PhysAddr,
 };
 
 const FreeMemory = Set(FreeMemoryData, "addr");
@@ -29,11 +39,19 @@ var freeMemoryCache: Cache(FreeMemory.Node) = .{};
 const ProcessQueue = Queue(Process);
 var processCache: Cache(ProcessQueue.Node) = .{};
 
+///////////////////////////////////////////////////////////////////////////////
+// Locals
+///////////////////////////////////////////////////////////////////////////////
+
 var freeMemory: FreeMemory = .{};
 
 var processQueue: ProcessQueue = .{};
 
-pub fn markMemoryUsed(addrOrNull: ?u64, size: u64) ?u64 {
+///////////////////////////////////////////////////////////////////////////////
+// Methods
+///////////////////////////////////////////////////////////////////////////////
+
+pub fn markMemoryUsed(addrOrNull: ?cpu.PhysAddr, size: cpu.PhysAddr) ?cpu.PhysAddr {
     if (addrOrNull) |addr| {
         const node = freeMemory.searchMax(.{ .addr = addr, .size = 0 }) orelse return null;
         if (node.data.addr + node.data.size >= addr + size) {
@@ -60,7 +78,6 @@ pub fn markMemoryUsed(addrOrNull: ?u64, size: u64) ?u64 {
                     freeMemoryCache.release(node);
                 }
             }
-
             return addr;
         }
     } else {
@@ -79,11 +96,10 @@ pub fn markMemoryUsed(addrOrNull: ?u64, size: u64) ?u64 {
             nodeOrNull = node.pred();
         }
     }
-
     return null;
 }
 
-pub fn markMemoryFree(addr: u64, size: u64) void {
+pub fn markMemoryFree(addr: cpu.PhysAddr, size: cpu.PhysAddr) void {
     const nodeOrNull = freeMemory.searchMax(.{ .addr = addr, .size = 0 });
     if (nodeOrNull) |node| {
         // coalesce before
@@ -98,7 +114,6 @@ pub fn markMemoryFree(addr: u64, size: u64) void {
                     freeMemoryCache.release(nextNode);
                 }
             }
-
             return;
         }
 
@@ -117,6 +132,22 @@ pub fn markMemoryFree(addr: u64, size: u64) void {
     freeMemory.insert(newNode);
 }
 
+pub fn createProcess() void {
+    const node = processCache.acquire();
+    node.data = .{};
+    processQueue.pushBack(node);
+}
+
 pub fn run() noreturn {
+    cpu.init();
+
+    processQueue.popFront().?.data.run();
+}
+
+pub fn isr(context: *cpu.Context) noreturn {
+    const process: *Process = @fieldParentPtr("context", context);
+    const node: *ProcessQueue.Node = @fieldParentPtr("data", process);
+    processQueue.pushBack(node);
+
     processQueue.popFront().?.data.run();
 }

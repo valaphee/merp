@@ -26,28 +26,28 @@ pub fn Queue(comptime Data: type) type {
         head: ?*Node = null,
         tail: ?*Node = null,
 
-        /// Preprends a node to the queue.
+        /// Preprends a node to the front of the queue.
         pub fn pushFront(self: *Self, node: *Node) void {
             node.next = self.head;
-            self.head = node;
             node.prev = null;
             if (self.head) |head| {
                 head.prev = node;
             } else {
                 self.tail = node;
             }
+            self.head = node;
         }
 
         /// Appends a node to the back of the queue.
         pub fn pushBack(self: *Self, node: *Node) void {
             node.prev = self.tail;
-            self.tail = node;
             node.next = null;
             if (self.tail) |tail| {
                 tail.prev = node;
             } else {
                 self.head = node;
             }
+            self.tail = node;
         }
 
         /// Removes the specified node from the queue.

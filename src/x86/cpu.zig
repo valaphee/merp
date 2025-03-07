@@ -12,12 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+///////////////////////////////////////////////////////////////////////////////
+// Externs
+///////////////////////////////////////////////////////////////////////////////
+
 const builtin = @import("builtin");
 
 const machine = @import("../machine.zig");
 const Process = @import("../Process.zig");
 
+///////////////////////////////////////////////////////////////////////////////
+// Globals
+///////////////////////////////////////////////////////////////////////////////
+
 const _64 = builtin.cpu.arch == .x86_64;
+
+pub const PhysAddr = u64;
+pub const VirtAddr = usize;
+
+///////////////////////////////////////////////////////////////////////////////
+// Segments
+///////////////////////////////////////////////////////////////////////////////
 
 const Descriptor = packed struct {
     limitLo: u16,
@@ -142,6 +157,10 @@ export var gdt: [7]Descriptor = .{
     },
 };
 
+///////////////////////////////////////////////////////////////////////////////
+// Interrupts
+///////////////////////////////////////////////////////////////////////////////
+
 const InterruptDescriptor = packed struct {
     baseLo: u16,
     cs: u16,
@@ -152,10 +171,73 @@ const InterruptDescriptor = packed struct {
     dpl: u2,
     p: bool,
     baseHi: if (_64) u48 else u16,
-    _2: if (_64) u32 else u0,
+    _2: if (_64) u32 else u0 = 0,
 };
 
 export var idt: [256]InterruptDescriptor = undefined;
+
+fn isr(comptime n: u8) fn () callconv(.Naked) noreturn {
+    return struct {
+        fn _() callconv(.Naked) noreturn {
+            switch (n) {
+                0x08, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x11, 0x15, 0x1D, 0x1E => {},
+                else => asm volatile ("push $0"),
+            }
+            asm volatile (
+                \\ push %[n]
+                \\ jmp isrCommon
+                :
+                : [n] "n" (n),
+            );
+        }
+    }._;
+}
+
+export fn isrCommon() callconv(.Naked) noreturn {
+    if (_64) asm volatile (
+        \\push %rax
+        \\push %rcx
+        \\push %rdx
+        \\push %rbx
+        //push %rsp
+        \\push %rbp
+        \\push %rsi
+        \\push %rdi
+        \\push %r8
+        \\push %r9
+        \\push %r10
+        \\push %r11
+        \\push %r12
+        \\push %r13
+        \\push %r14
+        \\push %r15
+        \\mov  %rsp    , %rdi
+        \\mov  stackTop, %rsp
+        \\push %rdi
+        \\call %[isr:P]
+        :
+        : [isr] "X" (&machine.isr),
+    ) else asm volatile (
+        \\pusha
+        \\mov   %esp    , %edi
+        \\mov   stackTop, %esp
+        \\call  %[isr:P]
+        :
+        : [isr] "X" (&machine.isr),
+    );
+}
+
+const isrs = blk: {
+    var _isrs: [256]*const fn () callconv(.Naked) noreturn = undefined;
+    for (&_isrs, 0..) |*_isr, i| {
+        _isr.* = &isr(i);
+    }
+    break :blk _isrs;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Tasks / Contexts
+///////////////////////////////////////////////////////////////////////////////
 
 const TaskStateSegment = if (_64) extern struct {
     _0: u32 = 0,
@@ -172,7 +254,7 @@ const TaskStateSegment = if (_64) extern struct {
     ist7: u64 align(4),
     _2: u64 align(4) = 0,
     _3: u16 = 0,
-    iopb: u16,
+    iopb: u16 = @sizeOf(TaskStateSegment),
 } else extern struct {
     link: u16,
     _0: u16 = 0,
@@ -211,13 +293,13 @@ const TaskStateSegment = if (_64) extern struct {
     ldtr: u16,
     _10: u16 = 0,
     _11: u16 = 0,
-    iopb: u16,
+    iopb: u16 = @sizeOf(TaskStateSegment),
 };
 
 var tss: TaskStateSegment = undefined;
 
-pub const State = extern struct {
-    gpr: [if (_64) 15 else 7]usize,
+pub const Context = extern struct {
+    gpr: [if (_64) 15 else 8]usize,
     int: u8,
     err: u32,
     ip: usize,
@@ -227,72 +309,9 @@ pub const State = extern struct {
     ss: u16,
 };
 
-fn isr(comptime int: u8) fn () callconv(.Naked) noreturn {
-    return struct {
-        fn _() callconv(.Naked) noreturn {
-            switch (int) {
-                0x08, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x11, 0x15, 0x1D, 0x1E => {},
-                else => asm volatile ("push $0"),
-            }
-            asm volatile (
-                \\ push %[int]
-                \\ jmp isrCommon
-                :
-                : [int] "n" (int),
-            );
-        }
-    }._;
-}
-
-export var stack: [4096]u8 align(16) = undefined;
-
-export fn isrCommon() callconv(.Naked) noreturn {
-    if (_64) asm volatile (
-        \\push %r15
-        \\push %r14
-        \\push %r13
-        \\push %r12
-        \\push %r11
-        \\push %r10
-        \\push %r9
-        \\push %r8
-        \\push %rdi
-        \\push %rsi
-        \\push %rbp
-        //push %rsp
-        \\push %rbx
-        \\push %rdx
-        \\push %rcx
-        \\push %rax
-        \\mov %[stackTop], %rsp
-        \\call %[run:P]
-        :
-        : [stackTop] "i" (@as([*]align(16) u8, @ptrCast(&stack)) + @sizeOf(@TypeOf(stack))),
-          [run] "X" (&machine.run),
-    ) else asm volatile (
-        \\push %edi
-        \\push %esi
-        \\push %ebp
-        //push %esp
-        \\push %ebx
-        \\push %edx
-        \\push %ecx
-        \\push %eax
-        \\mov %[stackTop], %esp
-        \\call %[run:P]
-        :
-        : [stackTop] "i" (@as([*]align(16) u8, @ptrCast(&stack)) + @sizeOf(@TypeOf(stack))),
-          [run] "X" (&machine.run),
-    );
-}
-
-const isrs = blk: {
-    var _isrs: [256]*const fn () callconv(.Naked) noreturn = undefined;
-    for (&_isrs, 0..) |*_isr, i| {
-        _isr.* = &isr(i);
-    }
-    break :blk _isrs;
-};
+///////////////////////////////////////////////////////////////////////////////
+// Methods
+///////////////////////////////////////////////////////////////////////////////
 
 pub fn init() void {
     tss.iopb = @sizeOf(@TypeOf(tss));
@@ -307,65 +326,56 @@ pub fn init() void {
     }
     gdt[TSS].limitLo = @truncate(tssSize);
     gdt[TSS].limitHi = tssSize >> 16;
-    asm volatile ("ltr %ax"
+    asm volatile ("ltr %[tss]"
         :
-        : [tss] "{ax}" (TSS << 3),
+        : [tss] "r" (@as(u16, TSS << 3)),
     );
 
     for (&idt, &isrs) |*id, _isr| {
         const isrAddr = @intFromPtr(_isr);
-        id.baseLo = @truncate(isrAddr);
-        id.baseHi = @truncate(isrAddr >> 16);
-        id.cs = KCODE << 3;
-        id.ist = 0;
-        id.type = 0xE;
-        id.dpl = 0;
-        id.p = true;
+        id.* = .{
+            .baseLo = @truncate(isrAddr),
+            .baseHi = @truncate(isrAddr >> 16),
+            .cs = KCODE << 3,
+            .ist = 0,
+            .type = 0xE,
+            .dpl = 0,
+            .p = true,
+        };
     }
 }
 
 pub fn initProcess(process: *Process) noreturn {
-    tss.sp0 = @intFromPtr(&process.state) + @sizeOf(@TypeOf(process.state));
+    tss.sp0 = @intFromPtr(&process.context) + @sizeOf(@TypeOf(process.context));
     if (_64) asm volatile (
-        \\mov %[state], %rsp
-        \\pop %rax
-        \\pop %rcx
-        \\pop %rdx
-        \\pop %rbx
-        //pop %rsp
-        \\pop %rbp
-        \\pop %rsi
-        \\pop %rdi
-        \\pop %r8
-        \\pop %r9
-        \\pop %r10
-        \\pop %r11
-        \\pop %r12
-        \\pop %r13
-        \\pop %r14
-        \\pop %r15
-        \\add $0x10, %rsp
+        \\mov  %[context], %rsp
+        \\pop  %r15
+        \\pop  %r14
+        \\pop  %r13
+        \\pop  %r12
+        \\pop  %r11
+        \\pop  %r10
+        \\pop  %r9
+        \\pop  %r8
+        \\pop  %rdi
+        \\pop  %rsi
+        \\pop  %rbp
+        //pop  %rsp
+        \\pop  %rbx
+        \\pop  %rdx
+        \\pop  %rcx
+        \\pop  %rax
+        \\add  $0x10     , %rsp
         \\iret
         :
-        : [state] "X" (&process.state),
+        : [context] "X" (&process.context),
     ) else asm volatile (
-        \\mov %[state], %esp
-        \\pop %eax
-        \\pop %ecx
-        \\pop %edx
-        \\pop %ebx
-        //pop %esp
-        \\pop %ebp
-        \\pop %esi
-        \\pop %edi
-        \\add $0x10, %esp
+        \\mov  %[context], %esp
+        \\popa
+        \\add  $0x10     , %esp
         \\iret
         :
-        : [state] "X" (&process.state),
+        : [context] "X" (&process.context),
     );
     unreachable;
-}
-
-pub fn wait() void {
-    asm volatile ("hlt");
 }

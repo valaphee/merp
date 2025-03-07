@@ -39,7 +39,7 @@ pub fn build(b: *std.Build) void {
             const target = b.resolveTargetQuery(targetQuery);
 
             const exe = b.addExecutable(.{
-                .name = "acorn",
+                .name = "merp",
                 .root_source_file = b.path("src/multiboot.zig"),
                 .target = target,
                 .optimize = optimize,

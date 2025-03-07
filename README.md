@@ -1,3 +1,3 @@
-# Acorn Operating System
+# Merp Operating System
 
-Acorn is an experimental operating system written in Zig and Rust.
+Merp is an experimental operating system written in Zig and Rust.

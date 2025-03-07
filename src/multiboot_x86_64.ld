@@ -8,7 +8,6 @@ ENTRY(_start)
 
 SECTIONS {
     . = LOAD;
-    _load_addr = .;
 
     .init : {
         // magic (required)
@@ -18,13 +17,13 @@ SECTIONS {
         // checksum (required)
         LONG(-(MULTIBOOT_MAGIC + MULTIBOOT_FLAGS));
         // header_addr (present if flags[16] is set)
-        LONG(_load_addr);
+        LONG(LOAD);
         // load_addr (present if flags[16] is set)
-        LONG(_load_addr);
+        LONG(LOAD);
         // load_end_addr (present if flags[16] is set)
-        LONG(_load_end_addr);
+        LONG(__bss - BASE);
         // bss_end_addr (present if flags[16] is set)
-        LONG(_bss_end_addr);
+        LONG(__bss_end - BASE);
         // entry_addr (present if flags[16] is set)
         LONG(_start);
         *(.init)
@@ -34,29 +33,33 @@ SECTIONS {
     . += BASE;
 
     .text ALIGN(CONSTANT(MAXPAGESIZE)) : AT(ADDR(.text) - BASE) {
+        __text = .;
         *(.text .text.*)
+        __text_end = .;
         . = ALIGN(CONSTANT(MAXPAGESIZE));
     }
 
     .rodata ALIGN(CONSTANT(MAXPAGESIZE)) : AT(ADDR(.rodata) - BASE) {
+        __rodata = .;
         *(.rodata .rodata.*)
+        __rodata_end = .;
         . = ALIGN(CONSTANT(MAXPAGESIZE));
     }
 
     .data ALIGN(CONSTANT(MAXPAGESIZE)) : AT(ADDR(.data) - BASE) {
+        __data = .;
         *(.data .data.*)
+        __data_end = .;
         . = ALIGN(CONSTANT(MAXPAGESIZE));
     }
-
-    _load_end_addr = . - BASE;
 
     .bss ALIGN(CONSTANT(MAXPAGESIZE)) (NOLOAD) : AT(ADDR(.bss) - BASE) {
+        __bss = .;
         *(.bss .bss.*)
         *(COMMON)
+        __bss_end = .;
         . = ALIGN(CONSTANT(MAXPAGESIZE));
     }
-
-    _bss_end_addr = . - BASE;
 
     /DISCARD/ : {
         *(.eh_frame .eh_frame*)

@@ -12,40 +12,51 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+///////////////////////////////////////////////////////////////////////////////
+// Externs
+///////////////////////////////////////////////////////////////////////////////
+
 const cpu = @import("x86/cpu.zig");
 
-const Set = @import("adt/set.zig").Set;
 const Cache = @import("cache.zig").Cache;
+const Set = @import("adt/set.zig").Set;
 
 const Process = @This();
 
+///////////////////////////////////////////////////////////////////////////////
+// Globals
+///////////////////////////////////////////////////////////////////////////////
+
 const UsedMemoryData = struct {
-    addr: usize,
-    size: usize,
+    addr: cpu.VirtAddr,
+    size: cpu.VirtAddr,
 };
 
 const UsedMemory = Set(UsedMemoryData, "addr");
 var usedMemoryCache: Cache(UsedMemory.Node) = .{};
 
+///////////////////////////////////////////////////////////////////////////////
+// Locals
+///////////////////////////////////////////////////////////////////////////////
+
 usedMemory: UsedMemory = .{},
 
-state: cpu.State = undefined,
+context: cpu.Context = undefined,
 
-pub fn acquireMemory(process: *Process, addrOrNull: ?usize, size: usize) ?usize {
-    if (addrOrNull) |addr| {
-        const node = usedMemoryCache.acquire();
-        node.data = .{ .addr = addr, .size = size };
-        process.usedMemory.insert(node);
-    }
-    return addrOrNull;
+///////////////////////////////////////////////////////////////////////////////
+// Methods
+///////////////////////////////////////////////////////////////////////////////
+
+pub fn acquireMemory(process: *Process, addrOrNull: ?cpu.VirtAddr, size: cpu.VirtAddr) ?cpu.VirtAddr {
+    _ = process;
+    _ = addrOrNull;
+    _ = size;
+    return null;
 }
 
-pub fn releaseMemory(process: *Process, addr: usize) void {
-    const nodeOrNull = process.usedMemory.search(.{ .addr = addr, .size = 0 });
-    if (nodeOrNull) |node| {
-        process.usedMemory.delete(node);
-        usedMemoryCache.release(node);
-    }
+pub fn releaseMemory(process: *Process, addr: cpu.VirtAddr) void {
+    _ = process;
+    _ = addr;
 }
 
 pub fn run(process: *Process) noreturn {
