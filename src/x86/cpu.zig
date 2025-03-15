@@ -300,13 +300,16 @@ var tss: TaskStateSegment = undefined;
 
 pub const Context = extern struct {
     gpr: [if (_64) 15 else 8]usize,
-    int: u8,
-    err: u32,
+
+    int: u8 align(@alignOf(usize)),
+
+    // Interrupt Stack Frame
+    err: u32 align(@alignOf(usize)),
     ip: usize,
-    cs: u16,
+    cs: u16 align(@alignOf(usize)),
     fl: usize,
     sp: usize,
-    ss: u16,
+    ss: u16 align(@alignOf(usize)),
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -378,4 +381,45 @@ pub fn initProcess(process: *Process) noreturn {
         : [context] "X" (&process.context),
     );
     unreachable;
+}
+
+/// Input from Port
+pub inline fn in(port: u16, _type: type) _type {
+    return switch (_type) {
+        u8 => asm volatile ("in %[port], %[data]"
+            : [data] "={al}" (-> _type),
+            : [port] "N{dx}" (port),
+        ),
+        u16 => asm volatile ("in %[port], %[data]"
+            : [data] "={ax}" (-> _type),
+            : [port] "N{dx}" (port),
+        ),
+        u32 => asm volatile ("in %[port], %[data]"
+            : [data] "={eax}" (-> _type),
+            : [port] "N{dx}" (port),
+        ),
+        else => {},
+    };
+}
+
+/// Output to Port
+pub inline fn out(port: u16, data: anytype) void {
+    switch (@TypeOf(data)) {
+        u8 => asm volatile ("out %[data], %[port]"
+            :
+            : [port] "N{dx}" (port),
+              [data] "{al}" (data),
+        ),
+        u16 => asm volatile ("out %[data], %[port]"
+            :
+            : [port] "N{dx}" (port),
+              [data] "{ax}" (data),
+        ),
+        u32 => asm volatile ("out %[data], %[port]"
+            :
+            : [port] "N{dx}" (port),
+              [data] "{eax}" (data),
+        ),
+        else => {},
+    }
 }

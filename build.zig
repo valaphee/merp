@@ -21,6 +21,8 @@ pub fn build(b: *std.Build) void {
 
     switch (arch) {
         .x86, .x86_64 => {
+            const _64 = arch == .x86_64;
+
             var featuresAdd = std.Target.Cpu.Feature.Set.empty;
             var featuresSub = std.Target.Cpu.Feature.Set.empty;
             featuresAdd.addFeature(@intFromEnum(std.Target.x86.Feature.soft_float));
@@ -43,12 +45,12 @@ pub fn build(b: *std.Build) void {
                 .root_source_file = b.path("src/multiboot.zig"),
                 .target = target,
                 .optimize = optimize,
-                .code_model = if (arch == .x86_64) .kernel else .default,
+                .code_model = if (_64) .kernel else .default,
             });
             exe.stack_size = 4096;
             exe.addIncludePath(b.path("src"));
-            exe.setLinkerScript(if (arch == .x86_64) b.path("src/multiboot_x86_64.ld") else b.path("src/multiboot_x86.ld"));
-            exe.addAssemblyFile(if (arch == .x86_64) b.path("src/multiboot_x86_64.S") else b.path("src/multiboot_x86.S"));
+            exe.setLinkerScript(if (_64) b.path("src/multiboot_x86_64.ld") else b.path("src/multiboot_x86.ld"));
+            exe.addAssemblyFile(if (_64) b.path("src/multiboot_x86_64.S") else b.path("src/multiboot_x86.S"));
             b.installArtifact(exe);
         },
         else => {},

@@ -127,9 +127,9 @@ pub fn markMemoryFree(addr: cpu.PhysAddr, size: cpu.PhysAddr) void {
         }
     }
 
-    const newNode = freeMemoryCache.acquire();
-    newNode.data = .{ .addr = addr, .size = size };
-    freeMemory.insert(newNode);
+    const node = freeMemoryCache.acquire();
+    node.data = .{ .addr = addr, .size = size };
+    freeMemory.insert(node);
 }
 
 pub fn createProcess() void {
@@ -145,8 +145,8 @@ pub fn run() noreturn {
 }
 
 pub fn isr(context: *cpu.Context) noreturn {
-    const process: *Process = @fieldParentPtr("context", context);
-    const node: *ProcessQueue.Node = @fieldParentPtr("data", process);
+    const data: *Process = @fieldParentPtr("context", context);
+    const node: *ProcessQueue.Node = @fieldParentPtr("data", data);
     processQueue.pushBack(node);
 
     processQueue.popFront().?.data.run();
