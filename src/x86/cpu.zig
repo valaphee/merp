@@ -27,8 +27,19 @@ const Process = @import("../Process.zig");
 
 const _64 = builtin.cpu.arch == .x86_64;
 
-pub const PhysAddr = u64;
+pub const PhysAddr = u64; // PAE
 pub const VirtAddr = usize;
+
+const SYSENTER_CS = 0x00000174;
+const SYSENTER_SP = 0x00000175;
+const SYSENTER_IP = 0x00000176;
+
+const EFER = 0xC0000080;
+const EFER_SCE = 1 << 0;
+const STAR = 0xC0000081;
+const LSTAR = 0xC0000082;
+const CSTAR = 0xC0000083;
+const SF_MASK = 0xC0000084;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Segments
@@ -178,7 +189,7 @@ export var idt: [256]InterruptDescriptor = undefined;
 
 fn isr(comptime n: u8) fn () callconv(.Naked) noreturn {
     return struct {
-        fn _() callconv(.Naked) noreturn {
+        fn isr() callconv(.Naked) noreturn {
             switch (n) {
                 0x08, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x11, 0x15, 0x1D, 0x1E => {},
                 else => asm volatile ("push $0"),
@@ -190,7 +201,7 @@ fn isr(comptime n: u8) fn () callconv(.Naked) noreturn {
                 : [n] "n" (n),
             );
         }
-    }._;
+    }.isr;
 }
 
 export fn isrCommon() callconv(.Naked) noreturn {
@@ -234,10 +245,6 @@ const isrs = blk: {
     }
     break :blk _isrs;
 };
-
-///////////////////////////////////////////////////////////////////////////////
-// Tasks / Contexts
-///////////////////////////////////////////////////////////////////////////////
 
 const TaskStateSegment = if (_64) extern struct {
     _0: u32 = 0,
@@ -317,8 +324,10 @@ pub const Context = extern struct {
 ///////////////////////////////////////////////////////////////////////////////
 
 pub fn init() void {
+    // update tss
     tss.iopb = @sizeOf(@TypeOf(tss));
 
+    // update gdt and load tss
     const tssAddr = @intFromPtr(&tss);
     const tssSize = @sizeOf(@TypeOf(tss)) - 1;
     gdt[TSS].baseLo = @truncate(tssAddr);
@@ -331,20 +340,35 @@ pub fn init() void {
     gdt[TSS].limitHi = tssSize >> 16;
     asm volatile ("ltr %[tss]"
         :
-        : [tss] "r" (@as(u16, TSS << 3)),
+        : [tss] "r" (@as(u16, TSS << 3 | 0)),
     );
 
+    // update idt
     for (&idt, &isrs) |*id, _isr| {
         const isrAddr = @intFromPtr(_isr);
         id.* = .{
             .baseLo = @truncate(isrAddr),
             .baseHi = @truncate(isrAddr >> 16),
-            .cs = KCODE << 3,
+            .cs = KCODE << 3 | 0,
             .ist = 0,
             .type = 0xE,
             .dpl = 0,
             .p = true,
         };
+    }
+
+    if (_64) {
+        // enable syscall
+        wrmsr(EFER, rdmsr(EFER) | EFER_SCE);
+        wrmsr(STAR, (KCODE << 3 | 0) << 32 | (UCODE << 3 | 3) << 48);
+        wrmsr(LSTAR, 0);
+        wrmsr(CSTAR, 0);
+        wrmsr(SF_MASK, 0);
+    } else {
+        // enable sysenter
+        wrmsr(SYSENTER_CS, KCODE << 3 | 0);
+        wrmsr(SYSENTER_SP, 0);
+        wrmsr(SYSENTER_IP, 0);
     }
 }
 
@@ -422,4 +446,26 @@ pub inline fn out(port: u16, data: anytype) void {
         ),
         else => {},
     }
+}
+
+/// Read From Model Specific Register
+pub inline fn rdmsr(msr: u32) u64 {
+    var valueLo: u64 = 0;
+    var valueHi: u64 = 0;
+    asm volatile ("rdmsr"
+        : [_] "={eax}" (valueLo),
+          [_] "={edx}" (valueHi),
+        : [_] "{ecx}" (msr),
+    );
+    return valueLo | valueHi << 32;
+}
+
+/// Write to Model Specific Register
+pub inline fn wrmsr(msr: u32, value: u64) void {
+    asm volatile ("wrmsr"
+        :
+        : [_] "{ecx}" (msr),
+          [_] "{eax}" (value),
+          [_] "{edx}" (value >> 32),
+    );
 }

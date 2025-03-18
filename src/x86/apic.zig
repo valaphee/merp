@@ -22,39 +22,20 @@ const cpu = @import("cpu.zig");
 // Globals
 ///////////////////////////////////////////////////////////////////////////////
 
-const MASTER = 0x20;
-const MASTER_IRQ = 0x20;
-const SLAVE = 0xA0;
-const SLAVE_IRQ = MASTER_IRQ + 8;
+const CTL = 0x0000001B;
+const CTL_EN = 1 << 11;
+const CTL_EXTD = 1 << 10;
 
-const ICW1_IC4: u8 = 1 << 0;
-const ICW1: u8 = 1 << 4;
-
-const ICW4_8086: u8 = 1 << 0;
-
-const OCW2_EOI: u8 = 1 << 5;
-
-const OCW3_RIS: u8 = 1 << 0;
-const OCW3_RR: u8 = 1 << 1;
-const OCW3: u8 = 1 << 3;
+const EOI = 0x0000080A;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Methods
 ///////////////////////////////////////////////////////////////////////////////
 
 pub fn init() void {
-    cpu.out(MASTER | 0, ICW1 | ICW1_IC4);
-    cpu.out(SLAVE | 0, ICW1 | ICW1_IC4);
-    cpu.out(MASTER | 1, @as(u8, MASTER_IRQ));
-    cpu.out(SLAVE | 1, @as(u8, SLAVE_IRQ));
-    cpu.out(MASTER | 1, @as(u8, 1 << 2));
-    cpu.out(SLAVE | 1, @as(u8, 2));
-    cpu.out(MASTER | 1, ICW4_8086);
-    cpu.out(SLAVE | 1, ICW4_8086);
+    cpu.wrmsr(CTL, CTL_EN | CTL_EXTD);
 }
 
-pub fn next(irq: u8) void {
-    if (irq >= SLAVE_IRQ)
-        cpu.out(SLAVE | 0, OCW2_EOI);
-    cpu.out(MASTER | 0, OCW2_EOI);
+pub fn next(_: u8) void {
+    cpu.wrmsr(EOI, 0);
 }

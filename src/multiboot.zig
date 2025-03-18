@@ -16,6 +16,8 @@
 // Externs
 ///////////////////////////////////////////////////////////////////////////////
 
+const std = @import("std");
+
 const c = @cImport(@cInclude("multiboot.h"));
 const cpu = @import("x86/cpu.zig");
 const machine = @import("machine.zig");
@@ -27,11 +29,13 @@ const machine = @import("machine.zig");
 extern const __text: *u8;
 extern const __bss_end: *u8;
 
+pub const panic = std.debug.FullPanic(panicFn);
+
 ///////////////////////////////////////////////////////////////////////////////
 // Methods
 ///////////////////////////////////////////////////////////////////////////////
 
-export fn main(multibootMagic: u32, multibootInfoAddr: u32) callconv(.C) noreturn {
+pub export fn main(multibootMagic: u32, multibootInfoAddr: u32) callconv(.C) noreturn {
     if (multibootMagic != c.MULTIBOOT_BOOTLOADER_MAGIC) {}
 
     const multibootInfo: *const c.multiboot_info = @ptrFromInt(multibootInfoAddr);
@@ -50,4 +54,11 @@ export fn main(multibootMagic: u32, multibootInfoAddr: u32) callconv(.C) noretur
     _ = machine.markMemoryUsed(@intFromPtr(__text), @intFromPtr(__bss_end) - @intFromPtr(__text));
 
     machine.run();
+}
+
+fn panicFn(msg: []const u8, ra: ?usize) noreturn {
+    _ = msg;
+    _ = ra;
+
+    while (true) {}
 }

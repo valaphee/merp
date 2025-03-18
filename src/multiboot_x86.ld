@@ -27,7 +27,6 @@ SECTIONS {
         // entry_addr (present if flags[16] is set)
         LONG(_start);
         *(.init)
-        . = ALIGN(CONSTANT(MAXPAGESIZE));
     }
 
     . += BASE;
@@ -36,21 +35,18 @@ SECTIONS {
         __text = .;
         *(.text .text.*)
         __text_end = .;
-        . = ALIGN(CONSTANT(MAXPAGESIZE));
     }
 
     .rodata ALIGN(CONSTANT(MAXPAGESIZE)) : AT(ADDR(.rodata) - BASE) {
         __rodata = .;
         *(.rodata .rodata.*)
         __rodata_end = .;
-        . = ALIGN(CONSTANT(MAXPAGESIZE));
     }
 
     .data ALIGN(CONSTANT(MAXPAGESIZE)) : AT(ADDR(.data) - BASE) {
         __data = .;
         *(.data .data.*)
         __data_end = .;
-        . = ALIGN(CONSTANT(MAXPAGESIZE));
     }
 
     .bss ALIGN(CONSTANT(MAXPAGESIZE)) (NOLOAD) : AT(ADDR(.bss) - BASE) {
@@ -58,7 +54,6 @@ SECTIONS {
         *(.bss .bss.*)
         *(COMMON)
         __bss_end = .;
-        . = ALIGN(CONSTANT(MAXPAGESIZE));
     }
 
     /DISCARD/ : {

@@ -18,11 +18,11 @@
 
 const cpu = @import("cpu.zig");
 
+const Self = @This();
+
 ///////////////////////////////////////////////////////////////////////////////
 // Globals
 ///////////////////////////////////////////////////////////////////////////////
-
-const Self = @This();
 
 const RBR = 0;
 const THR = 0;
@@ -68,11 +68,9 @@ addr: u16,
 ///////////////////////////////////////////////////////////////////////////////
 
 pub fn read(self: Self) u8 {
-    while (cpu.in(self.addr | LSR, u8) & LSR_DR == 0) {}
     return cpu.in(self.addr | RBR, u8);
 }
 
 pub fn write(self: Self, value: u8) void {
-    while (cpu.in(self.addr | LSR, u8) & LSR_THRE == 0) {}
     cpu.out(self.addr | THR, value);
 }
