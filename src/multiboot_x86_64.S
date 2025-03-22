@@ -1,4 +1,4 @@
-// Copyright 2024 Kevin Ludwig
+// Copyright 2025 Kevin Ludwig
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ _start:
     jae   2f
     mov   $1f, %esi
     jmp   panic
-1:  .asciz "cpuid 8000_0000h: eax < 8000_0001h"
+1:  .asciz "cpuid eax = 8000_0000h: eax < 8000_0001h"
 
 2:  mov   $0x80000001, %eax
     cpuid
@@ -38,7 +38,7 @@ _start:
     jnz   2f
     mov   $1f, %esi
     jmp   panic
-1: .asciz "cpuid 8000_0001h: !(edx & LM)"
+1: .asciz "cpuid eax = 8000_0001h: !(edx & LM)"
 
 2:  // enable PAE
     mov %cr4       , %eax

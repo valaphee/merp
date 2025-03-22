@@ -1,4 +1,4 @@
-// Copyright 2024 Kevin Ludwig
+// Copyright 2025 Kevin Ludwig
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -66,6 +66,18 @@ addr: u16,
 ///////////////////////////////////////////////////////////////////////////////
 // Methods
 ///////////////////////////////////////////////////////////////////////////////
+
+pub fn init(addr: u16) Self {
+    cpu.out(addr | IER, @as(u8, 0));
+    const baudrate_divisor = 115200 / 115200;
+    cpu.out(addr | LCR, LCR_DLAB);
+    cpu.out(addr | DLL, @as(u8, baudrate_divisor & 0xFF));
+    cpu.out(addr | DLM, @as(u8, baudrate_divisor >> 8 & 0xFF));
+    cpu.out(addr | LCR, @as(u8, 3));
+    cpu.out(addr | FCR, FCR_EN | FCR_RXRST | FCR_TXRST | 3 << FCR_TL);
+    cpu.out(addr | MCR, MCR_DTR | MCR_RTS | MCR_OUT1 | MCR_OUT2);
+    return .{ .addr = addr };
+}
 
 pub fn read(self: Self) u8 {
     return cpu.in(self.addr | RBR, u8);

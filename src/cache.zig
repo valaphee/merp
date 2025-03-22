@@ -49,7 +49,6 @@ pub fn Cache(comptime T: type) type {
                 }
                 nodeOrNull = node.next;
             }
-
             unreachable; // TODO: new node
         }
 
@@ -67,7 +66,6 @@ pub fn Cache(comptime T: type) type {
                 }
                 nodeOrNull = node.next;
             }
-
             unreachable; // TODO: item does not belong to any node
         }
     };
