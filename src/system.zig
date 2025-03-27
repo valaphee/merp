@@ -12,8 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///////////////////////////////////////////////////////////////////////////////
-// Methods
-///////////////////////////////////////////////////////////////////////////////
+pub fn createProcess() void {}
 
-pub fn init() void {}
+pub fn acquireMemory(addr: usize, size: usize) void {
+    _ = addr;
+    _ = size;
+}
+
+pub fn releaseMemory(addr: usize) void {
+    _ = addr;
+}
+
+pub fn waitOnAddress(addr: usize) void {
+    _ = addr;
+}
+
+pub fn wakeByAddress(addr: usize) void {
+    _ = addr;
+}
